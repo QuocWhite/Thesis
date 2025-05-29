@@ -26,10 +26,16 @@ def send_joint_data(t1, t2, t3, t4, t5, t6, t7):
 while True:
     try:
         user_input = input(
-            "Enter 7 values separated by spaces (t1 t2 t3 t4 t5 t6 t7), or 'q' to quit: ")
+            "Enter 7 values separated by spaces (t1 t2 t3 t4 t5 t6 t7), 'init' to initialize, or 'q' to quit: ")
+
         if user_input.lower() == 'q':
             print("Exiting...")
             break
+
+        elif user_input.lower() == 'init':
+            ser.write(b"init\n")
+            print("Sent: init")
+            continue
 
         parts = user_input.strip().split()
         if len(parts) != 7:
@@ -45,6 +51,3 @@ while True:
     except KeyboardInterrupt:
         print("\nInterrupted by user. Exiting...")
         break
-
-# Close serial port when done
-ser.close()

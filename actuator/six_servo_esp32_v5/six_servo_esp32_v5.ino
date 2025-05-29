@@ -1,16 +1,13 @@
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 
-// === Servo PWM Range Constants ===
-#define SERVO_PWM_MIN      360
-#define SERVO_PWM_MAX     2550
-#define SERVO_FREQUENCY     50
-
 // === Servo Model Pulse Widths ===
 #define MG996R_PWM_MIN     500
 #define MG996R_PWM_MAX    2400
 #define MG90S_PWM_MIN      600
 #define MG90S_PWM_MAX     2300
+
+#define SERVO_FREQUENCY     50
 
 // === Queue Settings ===
 #define TRAJECTORY_QUEUE_SIZE  16
@@ -29,6 +26,17 @@ Adafruit_PWMServoDriver servoDriver = Adafruit_PWMServoDriver();
 uint8_t jointChannels[6] = {
   BASE_JOINT, RIGHT_JOINT, LEFT_JOINT,
   TWIST_JOINT, WRIST_JOINT, FINGER_JOINT
+};
+
+// Per-joint PWM ranges
+uint16_t jointPWMMin[6] = {
+  MG996R_PWM_MIN, MG996R_PWM_MIN, MG996R_PWM_MIN,
+  MG996R_PWM_MIN, MG90S_PWM_MIN,  MG90S_PWM_MIN
+};
+
+uint16_t jointPWMMax[6] = {
+  MG996R_PWM_MAX, MG996R_PWM_MAX, MG996R_PWM_MAX,
+  MG996R_PWM_MAX, MG90S_PWM_MAX,  MG90S_PWM_MAX
 };
 
 // === Circular Queue Definition ===
@@ -50,10 +58,9 @@ TrajectoryQueue trajectoryQueue = {
 };
 
 // === Motion State Variables ===
-uint16_t previousJointPulse[6] = {SERVO_PWM_MIN};
-uint16_t currentJointPulse[7]  = {SERVO_PWM_MIN, SERVO_PWM_MIN, SERVO_PWM_MIN,
-                                  SERVO_PWM_MIN, SERVO_PWM_MIN, SERVO_PWM_MIN, 150};
-uint16_t incomingJointPulse[7] = {SERVO_PWM_MIN};
+uint16_t previousJointPulse[6] = {0};
+uint16_t currentJointPulse[7]  = {0};
+uint16_t incomingJointPulse[7] = {0};
 float motionDuration_ms = 150;
 bool jointMotionComplete[6] = {false};
 
@@ -93,8 +100,13 @@ void Queue_Dequeue(TrajectoryQueue *queue, uint16_t *dataOut) {
 // === Servo Testing ===
 void testSingleServo(uint8_t channel) {
   int pulseMin, pulseMid;
-    pulseMin = SERVO_PWM_MIN;
-    pulseMid = (SERVO_PWM_MIN + SERVO_PWM_MAX) / 2;
+  if (channel == WRIST_JOINT || channel == FINGER_JOINT) {
+    pulseMin = MG90S_PWM_MIN;
+    pulseMid = (MG90S_PWM_MIN + MG90S_PWM_MAX) / 2;
+  } else {
+    pulseMin = MG996R_PWM_MIN;
+    pulseMid = (MG996R_PWM_MIN + MG996R_PWM_MAX) / 2;
+  }
 
   Serial.print("Testing Servo Channel: ");
   Serial.println(channel);
@@ -121,12 +133,12 @@ void readSerialAndQueueTrajectory() {
       int j6 = rawInput.substring(rawInput.indexOf('e') + 1, rawInput.indexOf('f')).toInt();
       int gripper = rawInput.substring(rawInput.indexOf('f') + 1).toInt();
 
-      incomingJointPulse[0] = map(constrain(j1 + 109, 0, 218), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
-      incomingJointPulse[1] = map(constrain(172 - j2, 5, 140), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
-      incomingJointPulse[2] = map(constrain(j3 + j2 + 37, 0, 218), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
-      incomingJointPulse[3] = map(constrain(j4 + 109, 0, 218), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
-      incomingJointPulse[4] = map(constrain(j5 + 101, 0, 198), 0, 198, SERVO_PWM_MAX, SERVO_PWM_MIN);
-      incomingJointPulse[5] = map(constrain(j6 + 108, 0, 206), 0, 206, SERVO_PWM_MIN, SERVO_PWM_MAX);
+      incomingJointPulse[0] = map(constrain(j1 + 109, 0, 218), 0, 218, jointPWMMin[0], jointPWMMax[0]);
+      incomingJointPulse[1] = map(constrain(172 - j2, 5, 140), 0, 218, jointPWMMin[1], jointPWMMax[1]);
+      incomingJointPulse[2] = map(constrain(j3 + j2 + 37, 0, 218), 0, 218, jointPWMMin[2], jointPWMMax[2]);
+      incomingJointPulse[3] = map(constrain(j4 + 109, 0, 218), 0, 218, jointPWMMin[3], jointPWMMax[3]);
+      incomingJointPulse[4] = map(constrain(j5 + 101, 0, 198), 0, 198, jointPWMMax[4], jointPWMMin[4]); // reversed
+      incomingJointPulse[5] = map(constrain(j6 + 108, 0, 206), 0, 206, jointPWMMin[5], jointPWMMax[5]);
       incomingJointPulse[6] = gripper;
 
       Queue_Enqueue(&trajectoryQueue, incomingJointPulse);
@@ -187,12 +199,12 @@ void updateServoPositions() {
 
 // === Initialization ===
 void initializeJointState() {
-  previousJointPulse[0] = map(0, -109, 109, SERVO_PWM_MIN, SERVO_PWM_MAX);
-  previousJointPulse[1] = map(37, 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
-  previousJointPulse[2] = map(127, 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
-  previousJointPulse[3] = map(109, 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
-  previousJointPulse[4] = map(11, 0, 198, SERVO_PWM_MAX, SERVO_PWM_MIN);
-  previousJointPulse[5] = map(108, 0, 206, SERVO_PWM_MIN, SERVO_PWM_MAX);
+  previousJointPulse[0] = map(0, -109, 109, jointPWMMin[0], jointPWMMax[0]);
+  previousJointPulse[1] = map(37, 0, 218, jointPWMMin[1], jointPWMMax[1]);
+  previousJointPulse[2] = map(127, 0, 218, jointPWMMin[2], jointPWMMax[2]);
+  previousJointPulse[3] = map(109, 0, 218, jointPWMMin[3], jointPWMMax[3]);
+  previousJointPulse[4] = map(11, 0, 198, jointPWMMax[4], jointPWMMin[4]); // reversed
+  previousJointPulse[5] = map(108, 0, 206, jointPWMMin[5], jointPWMMax[5]);
 
   for (int i = 0; i < 6; i++) {
     currentJointPulse[i] = previousJointPulse[i];

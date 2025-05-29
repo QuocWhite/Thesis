@@ -6,12 +6,6 @@
 #define SERVO_PWM_MAX     2550
 #define SERVO_FREQUENCY     50
 
-// === Servo Model Pulse Widths ===
-#define MG996R_PWM_MIN     500
-#define MG996R_PWM_MAX    2400
-#define MG90S_PWM_MIN      600
-#define MG90S_PWM_MAX     2300
-
 // === Queue Settings ===
 #define TRAJECTORY_QUEUE_SIZE  16
 
@@ -130,6 +124,12 @@ void readSerialAndQueueTrajectory() {
       incomingJointPulse[6] = gripper;
 
       Queue_Enqueue(&trajectoryQueue, incomingJointPulse);
+    }
+    else if (rawInput == "init") {
+      initializeJointState();
+    }
+    else {
+      /* Do nothing*/
     }
   }
 }
