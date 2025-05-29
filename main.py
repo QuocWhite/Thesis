@@ -22,10 +22,29 @@ def send_joint_data(t1, t2, t3, t4, t5, t6, t7):
     ser.write(data.encode('utf-8'))
 
 
-# Example usage:
-send_joint_data(0, 10, 5, 0, 30, 20, 150)  # Replace values as needed
-
 # Keep script alive (optional)
 while True:
-    # Could implement live input or timed sequences here
-    time.sleep(0.1)
+    try:
+        user_input = input(
+            "Enter 7 values separated by spaces (t1 t2 t3 t4 t5 t6 t7), or 'q' to quit: ")
+        if user_input.lower() == 'q':
+            print("Exiting...")
+            break
+
+        parts = user_input.strip().split()
+        if len(parts) != 7:
+            print("Error: Please enter exactly 7 values.")
+            continue
+
+        # Convert all parts to integers
+        t1, t2, t3, t4, t5, t6, t7 = map(int, parts)
+        send_joint_data(t1, t2, t3, t4, t5, t6, t7)
+
+    except ValueError:
+        print("Error: Make sure all inputs are integers.")
+    except KeyboardInterrupt:
+        print("\nInterrupted by user. Exiting...")
+        break
+
+# Close serial port when done
+ser.close()
