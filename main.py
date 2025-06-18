@@ -1,53 +1,73 @@
 import serial
 import time
 
-# Change this to your actual port (e.g., "COM10" on Windows or "/dev/ttyUSB0" on Linux)
+# Adjust for your system
 SERIAL_PORT = "/dev/ttyUSB0"
 BAUD_RATE = 115200
 
 # Open serial connection
-ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
-time.sleep(2)  # Wait for the Arduino to reset
+try:
+    ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
+    time.sleep(2)  # Wait for Arduino to reset
+except serial.SerialException as e:
+    print(f"Error opening serial port: {e}")
+    exit(1)
 
 
-def send_joint_data(t1, t2, t3, t4, t5, t6, t7):
+def send_joint_data(t1, t2, t3, t4, t5, t6, t7=150):
     """
-    Send formatted joint data to the Arduino
-    t1 to t6: Joint positions
-    t7: Motion duration (tf)
+    Send formatted joint data to the Arduino and read response.
     """
-    # Format: s<t1>a<t2>b<t3>c<t4>d<t5>e<t6>f<t7>\n
     data = f"s{t1}a{t2}b{t3}c{t4}d{t5}e{t6}f{t7}\n"
-    print(f"Sending: {data.strip()}")
+    print(f"[TX] {data.strip()}")
     ser.write(data.encode('utf-8'))
+    read_response()
 
 
-# Keep script alive (optional)
+def send_command(cmd):
+    """
+    Send command string to Arduino and read response.
+    """
+    ser.write((cmd + '\n').encode('utf-8'))
+    print(f"[TX] {cmd}")
+    read_response()
+
+
+def read_response():
+    """
+    Read and print the Arduino response (if any).
+    """
+    time.sleep(0.1)  # Give Arduino a little time to respond
+    while ser.in_waiting:
+        response = ser.readline().decode('utf-8', errors='ignore').strip()
+        if response:
+            print(f"[RX] {response}")
+
+
+print("Ready. Type 7 joint angles + duration, or a command (e.g. 'init', 'status'). Type 'q' to quit.")
+
 while True:
     try:
-        user_input = input(
-            "Enter 7 values separated by spaces (t1 t2 t3 t4 t5 t6 t7), 'init' to initialize, or 'q' to quit: ")
+        user_input = input(">>> ").strip()
 
-        if user_input.lower() == 'q':
+        if user_input.lower() in ('q', 'quit', 'exit'):
             print("Exiting...")
             break
 
-        elif user_input.lower() == 'init':
-            ser.write(b"init\n")
-            print("Sent: init")
-            continue
+        parts = user_input.split()
 
-        parts = user_input.strip().split()
-        if len(parts) != 7:
-            print("Error: Please enter exactly 7 values.")
-            continue
+        if len(parts) == 6:
+            try:
+                angles = list(map(int, parts))
+                send_joint_data(*angles)
+            except ValueError:
+                print("Error: Please enter 7 valid integers.")
+        else:
+            if user_input:
+                send_command(user_input)
+            else:
+                print("Empty input. Please enter a command or 7 angles.")
 
-        # Convert all parts to integers
-        t1, t2, t3, t4, t5, t6, t7 = map(int, parts)
-        send_joint_data(t1, t2, t3, t4, t5, t6, t7)
-
-    except ValueError:
-        print("Error: Make sure all inputs are integers.")
     except KeyboardInterrupt:
-        print("\nInterrupted by user. Exiting...")
+        print("\nInterrupted. Exiting...")
         break
