@@ -1,7 +1,6 @@
 #include "ArmControl.h"
 
 void setup() {
-  Serial.begin(115200);
   ArmControl::initialize();
 }
 

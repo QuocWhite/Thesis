@@ -14,7 +14,7 @@ except serial.SerialException as e:
     exit(1)
 
 
-def send_joint_data(t1, t2, t3, t4, t5, t6, t7=50):
+def send_joint_data(t1, t2, t3, t4, t5, t6, t7=150):
     """
     Send formatted joint data to the Arduino and read response.
     """
@@ -44,7 +44,7 @@ def read_response():
             print(f"[RX] {response}")
 
 
-print("Ready. Type 6 joint angles, or a command (e.g. 'init', 'status'). Type 'q' to quit.")
+print("Ready. Type 7 joint angles + duration, or a command (e.g. 'init', 'status'). Type 'q' to quit.")
 
 while True:
     try:
@@ -61,12 +61,12 @@ while True:
                 angles = list(map(int, parts))
                 send_joint_data(*angles)
             except ValueError:
-                print("Error: Please enter 6 valid integers.")
+                print("Error: Please enter 7 valid integers.")
         else:
             if user_input:
                 send_command(user_input)
             else:
-                print("Empty input. Please enter a command or 6 angles.")
+                print("Empty input. Please enter a command or 7 angles.")
 
     except KeyboardInterrupt:
         print("\nInterrupted. Exiting...")
