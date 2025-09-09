@@ -9,10 +9,12 @@ enum {
   TWIST,
   WRIST,
   FINGER,
+  PWM,
   MAX_CHANNEL 
 };
 
 static Adafruit_PWMServoDriver servoDriver = Adafruit_PWMServoDriver();
+
 static UI_8 jointChannels[MAX_CHANNEL] = {BASE_JOINT, RIGHT_JOINT, LEFT_JOINT, TWIST_JOINT, WRIST_JOINT, FINGER_JOINT};
 
 static SI_16 factory_angle_matrix [MAX_JOINT][MAX_ANGLE] = {
@@ -49,7 +51,7 @@ static bool jointMotionComplete[MAX_JOINT] = {false};
 
 // === Queue Utils === */
 static bool Queue_IsFull(TrajectoryQueue *queue) {
-  return (queue->front == (queue->rear + 1) % queue->maxSize);
+  return (queue->front == (queue->rear + INCREASEMENT) % queue->maxSize);
 }
 
 static bool Queue_IsEmpty(TrajectoryQueue *queue) {
@@ -60,8 +62,8 @@ static void Queue_Enqueue(TrajectoryQueue *queue, UI_16 *data) {
   if (!Queue_IsFull(queue)) {
     if (Queue_IsEmpty(queue)) {
       queue->front = 0;
-      queue->rear = (queue->rear + 1) % queue->maxSize;
-      for (int i = 0; i < 7; i++) {
+      queue->rear = (queue->rear + INCREASEMENT) % queue->maxSize;
+      for (int i = COUNTER_INIT; i < MAX_CHANNEL; i++) {
         queue->qBase[i][queue->rear] = data[i];
       }
     }
@@ -70,39 +72,39 @@ static void Queue_Enqueue(TrajectoryQueue *queue, UI_16 *data) {
 
 static void Queue_Dequeue(TrajectoryQueue *queue, UI_16 *dataOut) {
   if (!Queue_IsEmpty(queue)) {
-    for (int i = 0; i < 7; i++) {
+    for (int i = COUNTER_INIT; i < END_COUNTER; i++) {
       dataOut[i] = queue->qBase[i][queue->front];
     }
     if (queue->front == queue->rear) {
-      queue->front = -1;
-      queue->rear = -1;
+      queue->front = QUEUE_EMPTY;
+      queue->rear = QUEUE_EMPTY;
     } else {
-      queue->front = (queue->front + 1) % queue->maxSize;
+      queue->front = (queue->front + INCREASEMENT) % queue->maxSize;
     }
   }
 }
 
 // === Internal Utilities ===
 static void testAllServos() {
-  for (int i = 0; i < 6; i++) {
+  for (int i = COUNTER_INIT; i < MAX_CHANNEL; i++) {
     int pulseMin = SERVO_PWM_MIN;
     int pulseMid = (SERVO_PWM_MIN + SERVO_PWM_MAX) / 2;
     servoDriver.writeMicroseconds(jointChannels[i], pulseMin);
-    delay(500);
-    servoDriver.writeMicroseconds(jointChannels[i], pulseMid);
-    delay(500);
+    delay(DELAY_TIME_MS); 
+    servoDriver.writeMicroseconds(jointChannels[i], pulseMid); 
+    delay(DELAY_TIME_MS);
   }
 }
 
 static bool isAllJointMotionComplete() {
-  for (int i = 0; i < 6; i++) {
+  for (int i = COUNTER_INIT; i < MAX_CHANNEL; i++) {
     if (!jointMotionComplete[i]) return false;
   }
   return true;
 }
 
 static void prepareNextMotionStep() {
-  for (int i = 0; i < 6; i++) {
+  for (int i = COUNTER_INIT; i < MAX_CHANNEL; i++) {
     previousJointPulse[i] = currentJointPulse[i];
     jointMotionComplete[i] = false;
   }
@@ -112,7 +114,7 @@ static void prepareNextMotionStep() {
 }
 
 static UI_16 computeCubicTrajectory(UI_16 start, UI_16 end, int jointIdx) {
-  static unsigned long startTime[6];
+  static unsigned long startTime[MAX_CHANNEL];
   static UI_16 previousEnd[6];
   static UI_16 outputValue[6];
 
@@ -236,11 +238,11 @@ void ArmControl::updateMotion() {
 
 void ArmControl::reportCurrentJointPositions() {
   Serial.print("Current joint pulses: ");
-  for (int i = 0; i < 6; i++) {
+  for (int i = COUNTER_INIT; i < MAX_CHANNEL; i++) {
     Serial.print(currentJointPulse[i]);
-    Serial.print(i < 5 ? ", " : "\n");
+    Serial.print(i < FINGER ? ", " : "\n");
   }
   Serial.print("Gripper: ");
-  Serial.println(currentJointPulse[6]);
+  Serial.println(currentJointPulse[MAX_CHANNEL]);
 }
 

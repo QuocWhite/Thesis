@@ -16,11 +16,15 @@ typedef int16_t   SI_16;
 #define SERVO_PWM_MAX           2550
 #define SERVO_FREQUENCY         50
 #define MOTION_DURATION         150
+#define DELAY_TIME_MS           500
+#define COUNTER_INIT            0
+#define END_COUNTER             7
 
 /* === Constant parameters for queue === */
 #define TRAJECTORY_QUEUE_SIZE   16
 #define QUEUE_EMPTY             -1
 #define INCREASEMENT            1
+#define DECREASEMENT            -1
 
 /* === Row and column of 2D matrix store initial value of servo === */
 #define MAX_ANGLE       2
