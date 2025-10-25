@@ -17,8 +17,9 @@ except serial.SerialException as e:
 def send_joint_data(t1, t2, t3, t4, t5, t6, t7=150):
     """
     Send formatted joint data to the Arduino and read response.
+    base, right, left, twist, wrist, finger, gripper
     """
-    data = f"s{t1}a{t2}b{t3}c{t4}d{t5}e{t6}f{t7}\n"
+    data = f"b{t1}r{t2}l{t3}t{t4}w{t5}f{t6}g{t7}\n"
     print(f"[TX] {data.strip()}")
     ser.write(data.encode('utf-8'))
     read_response()

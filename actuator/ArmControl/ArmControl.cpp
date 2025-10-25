@@ -61,7 +61,7 @@ static UI_8 jointMotionComplete[MAX_JOINT] = {D_FALSE};
 /* === Queue Utilities === */
 static UI_8 QueueIsFull(Trajectory *queue);
 static UI_8 QueueIsEmpty(Trajectory *queue);
-static void QueueEnqueue(Trajectory *queue, SI_16 *data);
+static void QueueEndQueue(Trajectory *queue, SI_16 *data);
 static void QueueDequeue(Trajectory *queue, SI_16 *dataOut);
 
 /* === Servo and Motion State Utilities === */
@@ -99,7 +99,7 @@ static UI_8 QueueIsEmpty(Trajectory *queue) {
   return ret;
 }
 
-static void QueueEnqueue(Trajectory *queue, SI_16 *data) {
+static void QueueEndQueue(Trajectory *queue, SI_16 *data) {
   UI_8 count;
 
   if ((D_FALSE == QueueIsFull(queue)) || 
@@ -181,31 +181,50 @@ static void updateServoPositions() {
   }
 }
 
-static UI_16 computeCubicTrajectory(UI_16 start, UI_16 end, SI_16 jointIdx) {
-  static UI_16 startTime[MAX_JOINT];
-  static UI_16 previousEnd[MAX_JOINT];
-  static UI_16 outputValue[MAX_JOINT];
-  float t;
-  float duration;
-  float a0, a1, a2, a3;
 
-  t = (millis() - startTime[jointIdx]) / 1000.0;
-  duration = MotionDuration / 1000.0;
-  if (previousEnd[jointIdx] != end) {
+static UI_16 computeCubicTrajectory(UI_16 startPos, UI_16 endPos, SI_16 jointIdx) {
+  static UI_16 startTime[MAX_JOINT];
+  static UI_16 lastTarget[MAX_JOINT];
+  static UI_16 currentOutput[MAX_JOINT];
+
+  // Get elapsed time in milliseconds
+  UI_16 elapsedMs = millis() - startTime[jointIdx];
+  UI_16 totalMs = MotionDuration;
+
+  // If new target detected, reset motion timer
+  if (lastTarget[jointIdx] != endPos) {
     startTime[jointIdx] = millis();
-    previousEnd[jointIdx] = end;
+    lastTarget[jointIdx] = endPos;
+    elapsedMs = 0;
   }
-  a0 = start;
-  a1 = 0;
-  a2 = 3.0 / (duration * duration) * (end - start);
-  a3 = -2.0 / (duration * duration * duration) * (end - start);
-  if (t <= duration) {
-    outputValue[jointIdx] = a0 + a1 * t + a2 * t * t + a3 * t * t * t;
+
+  // To keep precision, we’ll use scaled integer math (×1000)
+  // Convert to scaled "seconds" units
+  SI_32 t = elapsedMs;        // time in ms
+  SI_32 T = totalMs;          // total duration in ms
+  SI_32 delta = (SI_32)endPos - (SI_32)startPos;
+
+  // Precompute coefficients scaled by 1e9 to maintain precision
+  // a2 = 3 * (end - start) / (T^2)
+  // a3 = -2 * (end - start) / (T^3)
+  SI_32 a0 = startPos * 1000L;
+  SI_32 a1 = 0;
+  SI_32 a2 = (3L * delta * 1000000L) / (T * T);     // scaled by 1e6
+  SI_32 a3 = (-2L * delta * 1000000000L) / (T * T * T); // scaled by 1e9
+
+  if (t <= T) {
+    // Compute position using scaled math (divide appropriately)
+    SI_32 pos = a0
+              + (a1 * t) / 1000L
+              + (a2 * t * t) / 1000000L
+              + (a3 * t * t * t) / 1000000000L;
+
+    currentOutput[jointIdx] = (UI_16)(pos / 1000L);
   } else {
     jointMotionComplete[jointIdx] = D_TRUE;
   }
 
-  return outputValue[jointIdx];
+  return currentOutput[jointIdx];
 }
 
 static void UpdateJointState() {
@@ -251,9 +270,9 @@ static void HandleDataInput(SI_16 *value, Trajectory *Queue, String rawInput) {
   value[TWIST]  = map(constrain(j4 + 109, 0, 218), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
   value[WRIST]  = map(constrain(j5 + 101, 0, 198), 0, 198, SERVO_PWM_MAX, SERVO_PWM_MIN);
   value[FINGER] = map(constrain(j6 + 108, 0, 206), 0, 206, SERVO_PWM_MIN, SERVO_PWM_MAX);
-  value[6] = gripper;
+  value[SERVO_PWM] = gripper;
 
-  QueueEnqueue(Queue, value);
+  QueueEndQueue(Queue, value);
 }
 
 static void ReadManualCalib(SI_16 *value) {
@@ -324,8 +343,26 @@ void ArmControl::initialize() {
 void ArmControl::handleSerialCommands() {
   if (Serial.available() > 0) {
     String rawInput = Serial.readStringUntil('\n');
-    if (rawInput.startsWith("s")) {
-      HandleDataInput(currentJointPulse, &TrajectoryQueue, rawInput);
+    if (rawInput.startsWith("b")) {
+      UI_16 base, right, left, twist, wrist, finger, gripper;
+
+      base    = rawInput.substring(1, rawInput.indexOf('b')).toInt();
+      right   = rawInput.substring(rawInput.indexOf('b') + INCREASE, rawInput.indexOf('r')).toInt();
+      left    = rawInput.substring(rawInput.indexOf('r') + INCREASE, rawInput.indexOf('l')).toInt();
+      twist   = rawInput.substring(rawInput.indexOf('l') + INCREASE, rawInput.indexOf('t')).toInt();
+      wrist   = rawInput.substring(rawInput.indexOf('t') + INCREASE, rawInput.indexOf('w')).toInt();
+      finger  = rawInput.substring(rawInput.indexOf('w') + INCREASE, rawInput.indexOf('f')).toInt();
+      gripper = rawInput.substring(rawInput.indexOf('f') + INCREASE).toInt();
+
+      incomingJointPulse[BASE]        = map(constrain(base + 109, 0, 218), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
+      incomingJointPulse[RIGHT]       = map(constrain(172 - right, 5, 140), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
+      incomingJointPulse[LEFT]        = map(constrain(right + left + 37, 0, 218), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
+      incomingJointPulse[TWIST]       = map(constrain(twist + 109, 0, 218), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
+      incomingJointPulse[WRIST]       = map(constrain(wrist + 101, 0, 198), 0, 198, SERVO_PWM_MAX, SERVO_PWM_MIN);
+      incomingJointPulse[FINGER]      = map(constrain(finger + 108, 0, 206), 0, 206, SERVO_PWM_MIN, SERVO_PWM_MAX);
+      incomingJointPulse[SERVO_PWM]   = gripper;
+
+      QueueEndQueue(&TrajectoryQueue, incomingJointPulse);    
     } else if (rawInput == "init") {
       UpdateJointState();
     } else if (rawInput == "report") {

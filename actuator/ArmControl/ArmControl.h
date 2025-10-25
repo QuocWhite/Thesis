@@ -11,6 +11,7 @@ typedef uint8_t   UI_8;
 typedef uint16_t  UI_16;
 typedef int8_t    SI_8;
 typedef int16_t   SI_16;
+typedef int32_t   SI_32;
 
 /* === Common Defines === */
 #define D_FALSE     0
@@ -18,6 +19,7 @@ typedef int16_t   SI_16;
 #define OCLFRQ      27000000
 #define SERCHNL     115200
 #define WAITINIT    10
+#define FX_SCALE    1000      /* scale factor for fixed-point */
 
 /* === Servo Parameters === */
 #define SERVO_PWM_MIN           360
