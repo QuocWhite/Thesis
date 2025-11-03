@@ -14,12 +14,12 @@ except serial.SerialException as e:
     exit(1)
 
 
-def send_joint_data(t1, t2, t3, t4, t5, t6, t7=150):
+def send_joint_data(t1, t2, t3, t4, t5, t6):
     """
     Send formatted joint data to the Arduino and read response.
     base, right, left, twist, wrist, finger, gripper
     """
-    data = f"s{t1}b{t2}r{t3}l{t4}t{t5}w{t6}f{t7}\n"
+    data = f"b{t1}r{t2}l{t3}t{t4}w{t5}f{t6}\n"
     print(f"[TX] {data.strip()}")
     ser.write(data.encode('utf-8'))
     read_response()
@@ -45,7 +45,7 @@ def read_response():
             print(f"[RX] {response}")
 
 
-print("Ready. Type 6 joint angles + duration, or a command (e.g. 'init', 'status'). Type 'q' to quit.")
+print("Ready. Type 6 joint angles (0 - 180), or a command (e.g. 'init', 'status'). Type 'q' to quit.")
 
 while True:
     try:

@@ -14,25 +14,24 @@ enum {
   TWIST,
   WRIST,
   FINGER,
-  SERVO_PWM,
-  MAX_CHANNEL 
+  MAX_JOINT 
 };
 
 /* === Factory value for each servo of the arm === */
-static const SI_16 FactoryInit[MAX_JOINT] = {
-  map(BASE_ANGLE_VAL, BASE_MIN_ANGLE, BASE_MAX_ANGLE, SERVO_PWM_MIN, SERVO_PWM_MAX),
-  map(RIGHT_ANGLE_VAL, RIGHT_MIN_ANGLE, RIGHT_MAX_ANGLE, SERVO_PWM_MIN, SERVO_PWM_MAX),
-  map(LEFT_ANGLE_VAL, LEFT_MIN_ANGLE, LEFT_MAX_ANGLE, SERVO_PWM_MIN, SERVO_PWM_MAX),
-  map(TWIST_ANGLE_VAL, TWIST_MIN_ANGLE, TWIST_MAX_ANGLE, SERVO_PWM_MIN, SERVO_PWM_MAX),
-  map(WRIST_ANGLE_VAL, WRIST_MIN_ANGLE, WRIST_MAX_ANGLE, SERVO_PWM_MAX, SERVO_PWM_MIN),
-  map(FINGER_ANGLE_VAL, FINGER_MIN_ANGLE, FINGER_MAX_ANGLE, SERVO_PWM_MIN, SERVO_PWM_MAX)
+static const UI_16 FactoryInit[MAX_JOINT] = {
+  FACT_BASE_ANGLE_VAL,
+  FACT_RIGHT_ANGLE_VAL,
+  FACT_LEFT_ANGLE_VAL,
+  FACT_TWIST_ANGLE_VAL,
+  FACT_WRIST_ANGLE_VAL,
+  FACT_FINGER_ANGLE_VAL
 };
 
 /* === Store current joint values read from EEPROM === */
-static SI_16 CurrentEEPROMValue[MAX_JOINT] = {{0}};
+static UI_16 CurrentEEPROMValue[MAX_JOINT] = {{0}};
 
 /* === Store user input joint data === */
-static SI_16 UserInputJointData[MAX_JOINT] = {{0}};
+static UI_16 UserInputJointData[MAX_JOINT] = {{0}};
 
 /* === Servo driver object === */
 static Adafruit_PWMServoDriver servoDriver = Adafruit_PWMServoDriver();
@@ -43,17 +42,17 @@ static const UI_8 JointChannels[MAX_JOINT] = {BASE_JOINT, RIGHT_JOINT, LEFT_JOIN
 /* === Queue Structure === */
 typedef struct {
   SI_8 front, rear, maxSize;
-  UI_16 *qBase[MAX_CHANNEL];
+  UI_16 *qBase[MAX_JOINT];
 } Trajectory;
 
 /* === Buffer for trajectory queues === */
-static UI_16 queueBuffer[MAX_CHANNEL][TRAJECTORY_QUEUE_SIZE] = {{0}};
+static UI_16 queueBuffer[MAX_JOINT][TRAJECTORY_QUEUE_SIZE] = {{0}};
 
 /* === Trajectory queue instance === */
 static Trajectory TrajectoryQueue = {
   QUEUE_ERROR, QUEUE_ERROR, TRAJECTORY_QUEUE_SIZE,
   {queueBuffer[BASE], queueBuffer[RIGHT], queueBuffer[LEFT],
-   queueBuffer[TWIST], queueBuffer[WRIST], queueBuffer[FINGER], queueBuffer[MAX_CHANNEL]}
+   queueBuffer[TWIST], queueBuffer[WRIST], queueBuffer[FINGER]}
 };
 
 static const UI_8 BaseAngle[] = {
@@ -86,7 +85,7 @@ static const UI_8 FingerAngle[] = {
   FINGER_MIN_ANGLE_PIN,      FINGER_MAX_ANGLE_PIN
 };
 
-static const UI_8 *RangeAngleTable[] = {
+static const UI_8 *PinTable[] = {
   BaseAngle,
   RightAngle,
   LeftAngle,
@@ -99,35 +98,42 @@ static const UI_8 *RangeAngleTable[] = {
 /* ===              Static function decleration                  === */
 /* ================================================================= */
 
+/* === Commond Function === */
+
+static UI_16 AngletoValue(UI_16 angle, UI_16 minTarget, UI_16 maxTarget);
+static UI_16 ConsTrain(UI_16 value);
+static UI_16 ValuetoAngle(UI_16 value, UI_16 minTarget, UI_16 maxTarget);
+
 /* === Motion State === */
-static SI_16 previousJointPulse[MAX_JOINT] = {SERVO_PWM_MIN};
-static SI_16 currentJointPulse[MAX_JOINT]  = {SERVO_PWM_MIN};
-static SI_16 incomingJointPulse[MAX_JOINT] = {SERVO_PWM_MIN};
-static UI_8 MotionDuration = MOTION_DURATION;                               /* in miliseconds */
+static UI_16 previousJointPulse[MAX_JOINT] = {COMMON_MIN_ANGLE};
+static UI_16 currentJointPulse[MAX_JOINT]  = {COMMON_MIN_ANGLE};
+static UI_16 incomingJointPulse[MAX_JOINT] = {COMMON_MIN_ANGLE};
 static UI_8 jointMotionComplete[MAX_JOINT] = {D_FALSE};
 
 /* === Queue Utilities === */
 static UI_8 QueueIsFull(Trajectory *queue);
 static UI_8 QueueIsEmpty(Trajectory *queue);
-static void QueueEndQueue(Trajectory *queue, SI_16 *data);
-static void QueueDequeue(Trajectory *queue, SI_16 *dataOut);
+static void QueueEndQueue(Trajectory *queue, UI_16 *data);
+static void QueueDequeue(Trajectory *queue, UI_16 *dataOut);
 
 /* === Servo and Motion State Utilities === */
 static void testAllServos();
 static UI_8 isAllJointMotionComplete();
 static void prepareNextMotionStep();
 static void updateServoPositions();
-static UI_16 computeCubicTrajectory(UI_16 start, UI_16 end, SI_16 jointIdx);
+static UI_16 computeCubicTrajectory(UI_16 start, UI_16 end, UI_8 jointIdx);
 static void UpdateJointState();
 static void reportCurrentJointPositions();
 
 /* === Input Handling === */
-static void HandleDataInput(SI_16 *value, Trajectory *Queue, String rawInput);
-static void ReadManualCalib(SI_16 *value);
+static void HandleDataInput(UI_16 *value, Trajectory *Queue, String rawInput);
+static void ReadManualCalib(UI_16 *value);
+static void AutoCalibration();
+static UI_16 GetTravelPoint(UI_8 joint, UI_8 pin);
 
 /* === EEPROM Utilities === */
-static void WriteDataToEEPROM(const SI_16 *value, UI_8 magic_val);
-static void ReadJointDataFromEEPROM(SI_16 *value);
+static void WriteDataToEEPROM(const UI_16 *value, UI_8 magic_val);
+static void ReadJointDataFromEEPROM(UI_16 *value);
 static void initializeEEPROM();
 
 /* === System input data === */
@@ -135,12 +141,65 @@ static void initializeEEPROM();
 static void initializeTriggerPin();
 static UI_8 GetTriggerData(UI_8 joint, UI_8 value);
 
+/* === Command maping to function === */
+
+struct CommandEntry {
+    const char* name;
+    CommandFunc func;
+};
+
+CommandEntry commands[] = {
+    {"init",   UpdateJointState},
+    {"report", reportCurrentJointPositions},
+    {"mcalib", [](){ ReadManualCalib(UserInputJointData); }},
+    {"acalib", AutoCalibration},
+    {"test",   testAllServos}
+};
+
 /* ================================================================= */
 /* ===              Static function defination                   === */
 /* ================================================================= */
 
+/* === Commond Function === */
+
+static UI_16 AngletoValue(UI_16 angle, UI_16 minTarget, UI_16 maxTarget)
+{
+  UI_16 convertedAngle;
+  UI_16 value;
+
+  convertedAngle = ConsTrain(angle);
+  value = (convertedAngle - SERVO_MIN_SOURCE) * (maxTarget - minTarget) / (SERVO_MAX_SOURCE - SERVO_MIN_SOURCE) + minTarget;
+
+  return value;
+}
+
+static UI_16 ConsTrain(UI_16 value)
+{
+  UI_16 ret;
+
+  if (value < SERVO_MIN_SOURCE) {
+    ret = SERVO_MIN_SOURCE;
+  } else if (value > SERVO_MAX_SOURCE) {
+    ret = SERVO_MAX_SOURCE;
+  } else {
+    ret = value;
+  }
+
+  return ret;
+}
+
+static UI_16 ValuetoAngle(UI_16 value, UI_16 minTarget, UI_16 maxTarget)
+{
+  UI_16 angle;
+
+  angle = ((value - minTarget) * (SERVO_MAX_SOURCE - SERVO_MIN_SOURCE)) / (maxTarget - minTarget) + SERVO_MIN_SOURCE;
+
+  return angle;
+}
+
 /* === Queue Utilities === */
-static UI_8 QueueIsFull(Trajectory *queue) {
+static UI_8 QueueIsFull(Trajectory *queue)
+{
   UI_8 ret;
 
   ret = (queue->front == (queue->rear + INCREASE) % queue->maxSize) ? D_TRUE : D_FALSE;
@@ -148,7 +207,8 @@ static UI_8 QueueIsFull(Trajectory *queue) {
   return ret;
 }
 
-static UI_8 QueueIsEmpty(Trajectory *queue) {
+static UI_8 QueueIsEmpty(Trajectory *queue)
+{
   UI_8 ret;
 
   ret = (queue->front == QUEUE_ERROR) ? D_TRUE : D_FALSE;
@@ -156,14 +216,15 @@ static UI_8 QueueIsEmpty(Trajectory *queue) {
   return ret;
 }
 
-static void QueueEndQueue(Trajectory *queue, SI_16 *data) {
+static void QueueEndQueue(Trajectory *queue, UI_16 *data)
+{
   UI_8 count;
 
   if ((D_FALSE == QueueIsFull(queue)) || 
       (D_TRUE == QueueIsEmpty(queue))) {
     queue->front = QUEUE_EMPTY;
     queue->rear = (queue->rear + INCREASE) % queue->maxSize;
-    for (count = 0; count < MAX_CHANNEL; count++ ) {
+    for (count = FIRST_JOINT; count < MAX_JOINT; count++ ) {
       queue->qBase[count][queue->rear] = data[count];
     }
   } else {
@@ -171,11 +232,12 @@ static void QueueEndQueue(Trajectory *queue, SI_16 *data) {
   }
 }
 
-static void QueueDequeue(Trajectory *queue, SI_16 *dataOut) {
+static void QueueDequeue(Trajectory *queue, UI_16 *dataOut)
+{
   UI_8 count;
 
   if (D_FALSE == QueueIsEmpty(queue)) {
-    for (count = 0; count < MAX_CHANNEL; count++) {
+    for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
       dataOut[count] = queue->qBase[count][queue->front];
     }
     if (queue->front == queue->rear) {
@@ -188,27 +250,37 @@ static void QueueDequeue(Trajectory *queue, SI_16 *dataOut) {
 }
 
 /* === Servo and Motion State Utilities === */
-static void testAllServos() {
+static void testAllServos()
+{
   UI_8 count;
   UI_16 pulseMin;
   UI_16 pulseMid;
 
-  for (count = 0; count < MAX_JOINT; count++) {
-    pulseMin = SERVO_PWM_MIN;
-    pulseMid = (SERVO_PWM_MIN + SERVO_PWM_MAX) / MED_DEVIDE;
-    servoDriver.writeMicroseconds(JointChannels[count], pulseMin);
-    delay(DELAY_TIME);
-    servoDriver.writeMicroseconds(JointChannels[count], pulseMid);
-    delay(DELAY_TIME);
+  pulseMin = COMMON_MIN_ANGLE;
+  pulseMid = (COMMON_MIN_ANGLE + COMMON_MAX_ANGLE) / MED_DEVIDE;
+
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
+    if (FINGER == count) {
+      servoDriver.writeMicroseconds(JointChannels[count], FACT_FINGER_MIN_ANGLE);
+      delay(DELAY_TIME);
+      servoDriver.writeMicroseconds(JointChannels[count], FACT_FINGER_MAX_ANGLE);
+      delay(DELAY_TIME);
+    } else {
+      servoDriver.writeMicroseconds(JointChannels[count], pulseMin);
+      delay(DELAY_TIME);
+      servoDriver.writeMicroseconds(JointChannels[count], pulseMid);
+      delay(DELAY_TIME);
+  }
   }
 }
 
-static UI_8 isAllJointMotionComplete() {
+static UI_8 isAllJointMotionComplete()
+{
   UI_8 count;
   UI_8 ret;
 
   ret = D_TRUE;
-  for (count = 0; count < MAX_JOINT; count++) {
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
     if (D_FALSE == jointMotionComplete[count]) {
       ret = D_FALSE;
       break;
@@ -218,10 +290,11 @@ static UI_8 isAllJointMotionComplete() {
   return ret;
 }
 
-static void prepareNextMotionStep() {
+static void prepareNextMotionStep()
+{
   UI_8 count;
 
-  for (count = 0; count < MAX_JOINT; count++) {
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
     previousJointPulse[count] = currentJointPulse[count];
     jointMotionComplete[count] = D_FALSE;
   }
@@ -230,53 +303,57 @@ static void prepareNextMotionStep() {
   }
 }
 
-static void updateServoPositions() {
+static void updateServoPositions()
+{
   UI_8 count;
 
-  for (count = 0; count < MAX_JOINT; count++) {
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
     servoDriver.writeMicroseconds(JointChannels[count], computeCubicTrajectory(previousJointPulse[count], currentJointPulse[count], count));
   }
 }
 
 
-static UI_16 computeCubicTrajectory(UI_16 startPos, UI_16 endPos, SI_16 jointIdx) {
+static UI_16 computeCubicTrajectory(UI_16 startPos, UI_16 endPos, UI_8 jointIdx)
+{
   static UI_16 startTime[MAX_JOINT];
   static UI_16 lastTarget[MAX_JOINT];
   static UI_16 currentOutput[MAX_JOINT];
+  SI_32 a0;
+  SI_32 a1;
+  SI_32 a2;
+  SI_32 a3;
+  UI_16 elapsedMs;
+  SI_32 T;
+  SI_32 t;
+  SI_32 delta;
+  SI_32 pos;
 
-  // Get elapsed time in milliseconds
-  UI_16 elapsedMs = millis() - startTime[jointIdx];
-  UI_16 totalMs = MotionDuration;
+  delta = (SI_32)endPos - (SI_32)startPos;
 
-  // If new target detected, reset motion timer
   if (lastTarget[jointIdx] != endPos) {
     startTime[jointIdx] = millis();
     lastTarget[jointIdx] = endPos;
-    elapsedMs = 0;
+    elapsedMs = ELAPSE_INIT;
   }
 
-  // To keep precision, we’ll use scaled integer math (×1000)
-  // Convert to scaled "seconds" units
-  SI_32 t = elapsedMs;        // time in ms
-  SI_32 T = totalMs;          // total duration in ms
-  SI_32 delta = (SI_32)endPos - (SI_32)startPos;
+  elapsedMs = millis() - startTime[jointIdx];
+  T = MOTION_DURATION;          // total duration in ms
 
+  t = elapsedMs;
+ 
   // Precompute coefficients scaled by 1e9 to maintain precision
-  // a2 = 3 * (end - start) / (T^2)
-  // a3 = -2 * (end - start) / (T^3)
-  SI_32 a0 = startPos * 1000L;
-  SI_32 a1 = 0;
-  SI_32 a2 = (3L * delta * 1000000L) / (T * T);     // scaled by 1e6
-  SI_32 a3 = (-2L * delta * 1000000000L) / (T * T * T); // scaled by 1e9
+  a0 = startPos * CUBIC_SCALE_POS;
+  a1 = CUBIC_ZERO;
+  a2 = (CUBIC_COEFF_A2 * delta * CUBIC_SCALE_A2) / (T * T);
+  a3 = (CUBIC_COEFF_A3 * delta * CUBIC_SCALE_A3) / (T * T * T);
+     
 
   if (t <= T) {
     // Compute position using scaled math (divide appropriately)
-    SI_32 pos = a0
-              + (a1 * t) / 1000L
-              + (a2 * t * t) / 1000000L
-              + (a3 * t * t * t) / 1000000000L;
-
-    currentOutput[jointIdx] = (UI_16)(pos / 1000L);
+    pos = a0 / CUBIC_SCALE_POS + (a1 * t) 
+             + (a2 * t * t) / CUBIC_SCALE_A2
+             + (a3 * t * t * t) / CUBIC_SCALE_A3;
+    currentOutput[jointIdx] = (UI_16)pos;
   } else {
     jointMotionComplete[jointIdx] = D_TRUE;
   }
@@ -284,59 +361,70 @@ static UI_16 computeCubicTrajectory(UI_16 startPos, UI_16 endPos, SI_16 jointIdx
   return currentOutput[jointIdx];
 }
 
-static void UpdateJointState() {
+static void UpdateJointState()
+{
   UI_8 count;
 
-  for (count = 0; count < MAX_JOINT; count++) {
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
     previousJointPulse[count] = CurrentEEPROMValue[count];
   }
-  for (count = 0; count < MAX_JOINT; count++) {
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
     currentJointPulse[count] = previousJointPulse[count];
     servoDriver.writeMicroseconds(JointChannels[count], currentJointPulse[count]);
   }
-  currentJointPulse[SERVO_PWM] = MOTION_DURATION;
 }
 
-static void reportCurrentJointPositions() {
+static void reportCurrentJointPositions()
+{
   UI_8 count;
+  UI_16 val;
+  UI_16 pulseMin;
+  UI_16 pulseMax;
+
+  pulseMin = COMMON_MIN_ANGLE;
+  pulseMax = COMMON_MAX_ANGLE;
 
   Serial.print("Current joint pulses: ");
-  for (count = 0; count < MAX_JOINT; count++) {
-    Serial.print(currentJointPulse[count]);
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
+    if (FINGER == count)
+    {
+      pulseMin = FACT_FINGER_MIN_ANGLE;
+      pulseMax = FACT_FINGER_MAX_ANGLE;
+    }
+    val = ValuetoAngle(currentJointPulse[count], pulseMin, pulseMax);
+    Serial.print(val);
     Serial.print(count < FINGER ? ", " : "\n");
   }
-  Serial.print("Gripper: ");
-  Serial.println(currentJointPulse[SERVO_PWM]);
 }
 
 /* === Input Handling === */
-static void HandleDataInput(SI_16 *value, Trajectory *Queue, String rawInput) {
-  SI_16 base, right, left, twist, wrist, finger, gripper;
+static void HandleDataInput(UI_16 *value, Trajectory *Queue, String rawInput)
+{
+  UI_16 base, right, left, twist, wrist, finger;
 
-  base    = rawInput.substring(1, rawInput.indexOf('b')).toInt();
-  right   = rawInput.substring(rawInput.indexOf('b') + INCREASE, rawInput.indexOf('r')).toInt();
-  left    = rawInput.substring(rawInput.indexOf('r') + INCREASE, rawInput.indexOf('l')).toInt();
-  twist   = rawInput.substring(rawInput.indexOf('l') + INCREASE, rawInput.indexOf('t')).toInt();
-  wrist   = rawInput.substring(rawInput.indexOf('t') + INCREASE, rawInput.indexOf('w')).toInt();
-  finger  = rawInput.substring(rawInput.indexOf('w') + INCREASE, rawInput.indexOf('f')).toInt();
-  gripper = rawInput.substring(rawInput.indexOf('f') + INCREASE).toInt();
+  base    = rawInput.substring(FIRST_INPUT, rawInput.indexOf('l')).toInt();
+  right   = rawInput.substring(rawInput.indexOf('l') + INCREASE, rawInput.indexOf('r')).toInt();
+  left    = rawInput.substring(rawInput.indexOf('r') + INCREASE, rawInput.indexOf('t')).toInt();
+  twist   = rawInput.substring(rawInput.indexOf('t') + INCREASE, rawInput.indexOf('w')).toInt();
+  wrist   = rawInput.substring(rawInput.indexOf('w') + INCREASE, rawInput.indexOf('f')).toInt();
+  finger  = rawInput.substring(rawInput.indexOf('f') + INCREASE).toInt();
 
-  value[BASE]        = map(constrain(base + 109, 0, 218), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
-  value[RIGHT]       = map(constrain(172 - right, 5, 140), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
-  value[LEFT]        = map(constrain(right + left + 37, 0, 218), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
-  value[TWIST]       = map(constrain(twist + 109, 0, 218), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
-  value[WRIST]       = map(constrain(wrist + 101, 0, 198), 0, 198, SERVO_PWM_MAX, SERVO_PWM_MIN);
-  value[FINGER]      = map(constrain(finger + 108, 0, 206), 0, 206, SERVO_PWM_MIN, SERVO_PWM_MAX);
-  value[SERVO_PWM]   = gripper;
+  value[BASE]        = AngletoValue(base, FACT_BASE_MIN_ANGLE, FACT_BASE_MAX_ANGLE);
+  value[RIGHT]       = AngletoValue(right, FACT_RIGHT_MIN_ANGLE, FACT_RIGHT_MAX_ANGLE);
+  value[LEFT]        = AngletoValue(left, FACT_LEFT_MIN_ANGLE, FACT_LEFT_MAX_ANGLE);
+  value[TWIST]       = AngletoValue(twist, FACT_TWIST_MIN_ANGLE, FACT_TWIST_MAX_ANGLE);
+  value[WRIST]       = AngletoValue(wrist, FACT_WRIST_MIN_ANGLE, FACT_WRIST_MAX_ANGLE);
+  value[FINGER]      = AngletoValue(finger, FACT_FINGER_MIN_ANGLE, FACT_FINGER_MAX_ANGLE);
 
   QueueEndQueue(Queue, value);
 }
 
-static void ReadManualCalib(SI_16 *value) {
+static void ReadManualCalib(UI_16 *value)
+{
   UI_8 count;
   UI_8 low, high;
 
-  for (count = 0; count < MAX_JOINT; count++) {
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
     low = Serial.read();
     high = Serial.read();
     value[count] = (high << SHIFT_BYTE) | low;
@@ -346,10 +434,11 @@ static void ReadManualCalib(SI_16 *value) {
 }
 
 /* === EEPROM Utilities === */
-static void WriteDataToEEPROM(const SI_16 *value, UI_8 magic_val) {
+static void WriteDataToEEPROM(const UI_16 *value, UI_8 magic_val)
+{
   UI_8 count;
 
-  for (count = 0; count < MAX_JOINT; count++) {
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
     /* The upper 8 bits of a 16-bit value */
     EEPROM.write(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + MSB_OFFSET, (value[count] >> SHIFT_BYTE) & BYTE_MASK); /* MSB */ 
     /* The lower 8 bits of a 16-bit value */
@@ -359,18 +448,20 @@ static void WriteDataToEEPROM(const SI_16 *value, UI_8 magic_val) {
   EEPROM.commit();
 }
 
-static void ReadJointDataFromEEPROM(SI_16 *value) {
+static void ReadJointDataFromEEPROM(UI_16 *value)
+{
   UI_8 count;
   UI_8 msb, lsb;
 
-  for (count = 0; count < MAX_JOINT; count++) {
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
     msb = EEPROM.read(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + MSB_OFFSET);
     lsb = EEPROM.read(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + LSB_OFFSET);
     value[count] = ((msb << SHIFT_BYTE) | lsb);
   }
 }
 
-static void initializeEEPROM() {
+static void initializeEEPROM()
+{
   UI_8 eepVal;
 
   eepVal = EEPROM.read(MAGIC_ADDR);
@@ -387,26 +478,73 @@ static void initializeEEPROM() {
 
 /* === System input data === */
 
-static void initializeTriggerPin() {
+static void initializeTriggerPin()
+{
   UI_8 joint;
   UI_8 index;
 
-  for (joint = 0; joint < MAX_JOINT; joint++) {
-    for (index = 0;index < MAX_ANGLE; index++) {
-      pinMode(RangeAngleTable[joint][index],OUTPUT);
+  for (joint = FIRST_JOINT; joint < MAX_JOINT; joint++) {
+    for (index = FIRST_ANGLE;index < MAX_ANGLE; index++) {
+      pinMode(PinTable[joint][index],INPUT);
     }
   }
 }
 
-static UI_8 GetTriggerData(UI_8 joint, UI_8 index) {
+static UI_8 GetTriggerData(UI_8 joint, UI_8 index)
+{
   UI_8 ret;
-  UI_8 AnglePin;
 
   ret = D_OFF;
-  AnglePin = digitalRead(RangeAngleTable[joint][index]);
+  ret = digitalRead(PinTable[joint][index]);
 
-  if (AnglePin == HIGH) {
-    ret = D_ON;
+  return ret;
+}
+
+static void AutoCalibration()
+{
+  UI_8 joint;
+  UI_8 index;
+  UI_16 ServoAngleBuffer[joint][index];
+
+  for (joint = FIRST_JOINT; joint < MAX_JOINT; joint++) {
+    for (index = FIRST_ANGLE; index < MAX_ANGLE; index++) {
+      ServoAngleBuffer[joint][index] = GetTravelPoint(joint, index);
+    }
+  }
+}
+
+static UI_16 GetTravelPoint(UI_8 joint, UI_8 pin)
+{
+  UI_16 start;
+  UI_16 end;
+  UI_8 step;
+  UI_16 ret;
+  UI_8 angle;
+  UI_8 triggerData;
+
+  triggerData = GetTriggerData(joint, pin);
+  start = (SERVO_MIN_TARGET + SERVO_MAX_TARGET)/MED_DEVIDE;
+  angle = start;
+  pinMode(PinTable[joint][pin], INPUT);
+
+  if (PIN_MIN == pin) {
+    end = SERVO_MIN_TARGET;
+    step = -STEP_SIZE;
+  } else if (PIN_MAX == pin) {
+    end = SERVO_MAX_TARGET;
+    step = STEP_SIZE;
+  } else {
+    end = start;
+  }
+
+  for (;(pin ? angle <= end : angle >= end); angle += step) {
+      servoDriver.writeMicroseconds(JointChannels[joint], angle);
+      delay(DELAY_SET);
+      if (D_ON == triggerData) {
+        ret = angle;
+      } else {
+        ret = pin ? start : end;
+      }
   }
 
   return ret;
@@ -416,7 +554,8 @@ static UI_8 GetTriggerData(UI_8 joint, UI_8 index) {
 /* ===                  Exposed Methods                          === */
 /* ================================================================= */
 
-void ArmControl::initialize() {
+void ArmControl::initialize()
+{
   Serial.begin(SERCHNL);
   servoDriver.begin();
   servoDriver.setOscillatorFrequency(OCLFRQ);
@@ -429,45 +568,25 @@ void ArmControl::initialize() {
   UpdateJointState();
 }
 
-void ArmControl::handleSerialCommands() {
-  if (Serial.available() > 0) {
+void ArmControl::handleSerialCommands()
+{
+  if (Serial.available() > UNAVAIL_SER) {
     String rawInput = Serial.readStringUntil('\n');
-    if (rawInput.startsWith("s")) {
-      UI_16 base, right, left, twist, wrist, finger, gripper;
-
-      base    = rawInput.substring(1, rawInput.indexOf('b')).toInt();
-      right   = rawInput.substring(rawInput.indexOf('b') + INCREASE, rawInput.indexOf('r')).toInt();
-      left    = rawInput.substring(rawInput.indexOf('r') + INCREASE, rawInput.indexOf('l')).toInt();
-      twist   = rawInput.substring(rawInput.indexOf('l') + INCREASE, rawInput.indexOf('t')).toInt();
-      wrist   = rawInput.substring(rawInput.indexOf('t') + INCREASE, rawInput.indexOf('w')).toInt();
-      finger  = rawInput.substring(rawInput.indexOf('w') + INCREASE, rawInput.indexOf('f')).toInt();
-      gripper = rawInput.substring(rawInput.indexOf('f') + INCREASE).toInt();
-
-      incomingJointPulse[BASE]        = map(constrain(base + 109, 0, 218), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
-      incomingJointPulse[RIGHT]       = map(constrain(172 - right, 5, 140), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
-      incomingJointPulse[LEFT]        = map(constrain(right + left + 37, 0, 218), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
-      incomingJointPulse[TWIST]       = map(constrain(twist + 109, 0, 218), 0, 218, SERVO_PWM_MIN, SERVO_PWM_MAX);
-      incomingJointPulse[WRIST]       = map(constrain(wrist + 101, 0, 198), 0, 198, SERVO_PWM_MAX, SERVO_PWM_MIN);
-      incomingJointPulse[FINGER]      = map(constrain(finger + 108, 0, 206), 0, 206, SERVO_PWM_MIN, SERVO_PWM_MAX);
-      incomingJointPulse[SERVO_PWM]   = gripper;
-
-      QueueEndQueue(&TrajectoryQueue, incomingJointPulse);  
-      /*HandleDataInput( incomingJointPulse, &TrajectoryQueue, rawInput );*/
-    } else if (rawInput == "init") {
-      UpdateJointState();
-    } else if (rawInput == "report") {
-      reportCurrentJointPositions();
-    } else if (rawInput == "mcalib") {
-      ReadManualCalib(UserInputJointData);
-    } else if (rawInput == "test") {
-      testAllServos();
-    }else {
-      /* do nothing */
+    if (rawInput.startsWith("b")) {
+      HandleDataInput( incomingJointPulse, &TrajectoryQueue, rawInput );
+    } else {
+      for (size_t i = 0; i < sizeof(commands)/sizeof(commands[0]); ++i) {
+        if (rawInput == commands[i].name) {
+          commands[i].func();
+          break;
+        }
+      }
     }
   }
 }
 
-void ArmControl::updateMotion() {
+void ArmControl::updateMotion()
+{
   updateServoPositions();
   if (D_TRUE == isAllJointMotionComplete()) {
     prepareNextMotionStep();
