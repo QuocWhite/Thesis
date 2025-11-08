@@ -437,29 +437,15 @@ static void ReadManualCalib(UI_16 *value)
 static void WriteDataToEEPROM(const UI_16 *value, UI_8 magic_val)
 {
   UI_8 count;
-
   
-  if (MAGIC_INIT_VAL == magic_val) {
-    for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
     /* The upper 8 bits of a 16-bit value */
     EEPROM.write(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + MSB_OFFSET, (value[count] >> SHIFT_BYTE) & BYTE_MASK); /* MSB */ 
     /* The lower 8 bits of a 16-bit value */
     EEPROM.write(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + LSB_OFFSET, value[count] & BYTE_MASK);                 /* LSB */ 
-    }
-
-    EEPROM.Write(MAGIC_ADDR, magic_val);
-  } else if (MAGIC_MODF_VAL == magic_val) {
-    for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
-    /* The upper 8 bits of a 16-bit value */
-    EEPROM.update(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + MSB_OFFSET, (value[count] >> SHIFT_BYTE) & BYTE_MASK); /* MSB */ 
-    /* The lower 8 bits of a 16-bit value */
-    EEPROM.update(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + LSB_OFFSET, value[count] & BYTE_MASK);                 /* LSB */ 
-    }
-
-    EEPROM.update(MAGIC_ADDR, magic_val);
-  } else {
-    /* do nothing */
   }
+  
+  EEPROM.write(MAGIC_ADDR, magic_val);
 
   EEPROM.commit();
 }
@@ -595,8 +581,8 @@ void ArmControl::handleSerialCommands()
     if (rawInput.startsWith("b")) {
       HandleDataInput( incomingJointPulse, &TrajectoryQueue, rawInput );
     } else {
-      for (count = INIT_COMMAND ; count < (sizeof(commands)/sizeof(commands[INIT_COMMAND])); ++i) {
-        if (commands[count].name == rawInput) {
+      for (count = INIT_COMMAND ; count < (sizeof(commands)/sizeof(commands[INIT_COMMAND])); ++count) {
+        if (rawInput == commands[count].name) {
           commands[count].func();
           break;
         }

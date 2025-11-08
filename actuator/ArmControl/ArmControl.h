@@ -149,7 +149,8 @@ typedef void (*CommandFunc)();
 
 namespace ArmControl {
   void initialize();
-  void handleSerialCommands(); void updateMotion();
+  void handleSerialCommands();
+  void updateMotion();
 }
 
 #endif
