@@ -35,6 +35,7 @@ typedef void (*CommandFunc)();
 #define MARK_UP_TIME            2000
 #define SERVO_MIN_SOURCE        0
 #define SERVO_MAX_SOURCE        180
+#define EMPTY_VALUE             0
 
 /* === Queue Parameters === */
 
@@ -53,7 +54,7 @@ typedef void (*CommandFunc)();
 
 /* === EEPROM Configuration === */
 
-#define EEPROM_SIZE       64
+#define EEPROM_SIZE       32
 #define MAGIC_ADDR        0
 #define MAGIC_INIT_VAL    0x27
 #define MAGIC_MODF_VAL    0x12
@@ -139,6 +140,10 @@ typedef void (*CommandFunc)();
 #define CUBIC_COEFF_A3     -2
 #define CUBIC_ZERO          0
 #define ELAPSE_INIT         0
+
+/* === Matrix/Array Dimensions === */
+
+#define INIT_COMMAND     0
 
 /* === Arm Control API === */
 

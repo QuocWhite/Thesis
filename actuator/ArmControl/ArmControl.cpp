@@ -8,7 +8,7 @@ using namespace ArmControl;
 
 /* === All joint channels and the PWM of the servos === */
 enum {
-  BASE = 0,
+  BASE = FIRST_JOINT,
   RIGHT,
   LEFT,
   TWIST,
@@ -28,10 +28,10 @@ static const UI_16 FactoryInit[MAX_JOINT] = {
 };
 
 /* === Store current joint values read from EEPROM === */
-static UI_16 CurrentEEPROMValue[MAX_JOINT] = {{0}};
+static UI_16 CurrentEEPROMValue[MAX_JOINT] = {{EMPTY_VALUE}};
 
 /* === Store user input joint data === */
-static UI_16 UserInputJointData[MAX_JOINT] = {{0}};
+static UI_16 UserInputJointData[MAX_JOINT] = {{EMPTY_VALUE}};
 
 /* === Servo driver object === */
 static Adafruit_PWMServoDriver servoDriver = Adafruit_PWMServoDriver();
@@ -46,7 +46,7 @@ typedef struct {
 } Trajectory;
 
 /* === Buffer for trajectory queues === */
-static UI_16 queueBuffer[MAX_JOINT][TRAJECTORY_QUEUE_SIZE] = {{0}};
+static UI_16 queueBuffer[MAX_JOINT][TRAJECTORY_QUEUE_SIZE] = {{EMPTY_VALUE}};
 
 /* === Trajectory queue instance === */
 static Trajectory TrajectoryQueue = {
@@ -438,13 +438,29 @@ static void WriteDataToEEPROM(const UI_16 *value, UI_8 magic_val)
 {
   UI_8 count;
 
-  for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
+  
+  if (MAGIC_INIT_VAL == magic_val) {
+    for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
     /* The upper 8 bits of a 16-bit value */
     EEPROM.write(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + MSB_OFFSET, (value[count] >> SHIFT_BYTE) & BYTE_MASK); /* MSB */ 
     /* The lower 8 bits of a 16-bit value */
     EEPROM.write(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + LSB_OFFSET, value[count] & BYTE_MASK);                 /* LSB */ 
+    }
+
+    EEPROM.Write(MAGIC_ADDR, magic_val);
+  } else if (MAGIC_MODF_VAL == magic_val) {
+    for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
+    /* The upper 8 bits of a 16-bit value */
+    EEPROM.update(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + MSB_OFFSET, (value[count] >> SHIFT_BYTE) & BYTE_MASK); /* MSB */ 
+    /* The lower 8 bits of a 16-bit value */
+    EEPROM.update(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + LSB_OFFSET, value[count] & BYTE_MASK);                 /* LSB */ 
+    }
+
+    EEPROM.update(MAGIC_ADDR, magic_val);
+  } else {
+    /* do nothing */
   }
-  EEPROM.write(MAGIC_ADDR, magic_val);
+
   EEPROM.commit();
 }
 
@@ -464,11 +480,12 @@ static void initializeEEPROM()
 {
   UI_8 eepVal;
 
-  eepVal = EEPROM.read(MAGIC_ADDR);
   if (!EEPROM.begin(EEPROM_SIZE)) {
     return;
   }
-  if (eepVal != MAGIC_INIT_VAL && eepVal != MAGIC_MODF_VAL) {
+
+  eepVal = EEPROM.read(MAGIC_ADDR);
+  if ((eepVal != MAGIC_INIT_VAL) && (eepVal != MAGIC_MODF_VAL)) {
     WriteDataToEEPROM(FactoryInit, MAGIC_INIT_VAL);
   } else {
     /* do nothing */
@@ -570,14 +587,17 @@ void ArmControl::initialize()
 
 void ArmControl::handleSerialCommands()
 {
+  UI_8 count;
+
   if (Serial.available() > UNAVAIL_SER) {
     String rawInput = Serial.readStringUntil('\n');
+
     if (rawInput.startsWith("b")) {
       HandleDataInput( incomingJointPulse, &TrajectoryQueue, rawInput );
     } else {
-      for (size_t i = 0; i < sizeof(commands)/sizeof(commands[0]); ++i) {
-        if (rawInput == commands[i].name) {
-          commands[i].func();
+      for (count = INIT_COMMAND ; count < (sizeof(commands)/sizeof(commands[INIT_COMMAND])); ++i) {
+        if (commands[count].name == rawInput) {
+          commands[count].func();
           break;
         }
       }
