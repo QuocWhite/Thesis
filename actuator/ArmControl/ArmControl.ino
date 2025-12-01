@@ -1,11 +1,13 @@
 #include "ArmControl.h"
 
+ArmControl arm;
+
 void setup() {
-  ArmControl::initialize();
+  arm.initialize();
 }
 
 void loop() {
-  ArmControl::handleSerialCommands();
-  ArmControl::updateMotion();
+  arm.handleSerialCommands();
+  arm.updateMotion();
 }
 
