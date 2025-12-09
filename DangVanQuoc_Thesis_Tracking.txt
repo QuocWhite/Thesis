@@ -1,0 +1,61 @@
+1. Hardware
+ - Description :
+   + Full arm (can be work but still stuck due to Hardware components "Note: Servo still unstable if it transition out of balance status").
+   + Camera is work correct but need to find the good way to make it has the best vision.
+ - Progress :
+   + All device must integration test.
+ - Next action :
+   + Combine all devices to test.
+ - Priority :
+   + Medium
+
+2. Software
+ 2.1. Firmware :
+  - Description
+    + Create a Firmware to directly control Hardware base on command from application.
+  - Progress :
+    + It can be work a basic flow need to upgrade and refactor the source to longer usage and make it stable.
+  - Next action :
+    + Change from namespace into OOP for longer usage.
+    + Update some function for easy usage such as NvM, Kinematics.
+  - Priority :
+    + Low
+
+ 2.2. Software :
+  2.2.1. Voice
+   - Description
+     + Create a voice detection to detect the command from user extract it into the machine can be understand as a command.
+   - Progress :
+     + Detect a command but still noise and not trustable.
+   - Next action :
+     + Need to upgrade to extract the command.
+   - Priority :
+     + High
+  2.2.2. Vision
+   - Description :
+     + Training an computer vision model to detect and given the position in coordinate of an object for the arm.
+   - Progress :
+     + Need to create another model. It not really work before.
+   - Next action :
+     + Create a model to determinate object in 2D with a Camera.
+     + Extract the image processing into the position.
+   - Priority :
+     + High
+ 2.2.3 Combination
+  - Description :
+    + Combination Software. INPUT : user command, 3D position --> OUTPUT : Angle for each servo.
+  - Progress :
+    + N/A
+  - Next action :
+    + Waiting for working of all Software component to be done.
+  - Priority :
+    + Medium.
+3. Graduation project report
+ - Description :
+   + Write the Report for the project
+ - Progress :
+   + Start to write the report with the project at the same time to get both is done on time.
+ - Next action :
+   + Continue to done the report.
+ - Priority
+   + Low
