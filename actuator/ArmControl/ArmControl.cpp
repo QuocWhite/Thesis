@@ -366,7 +366,7 @@ static void UpdateJointState()
   UI_8 count;
 
   for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
-    previousJointPulse[count] = CurrentEEPROMValue[count];
+    previousJointPulse[count] = FactoryInit[count];
   }
   for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
     currentJointPulse[count] = previousJointPulse[count];
@@ -565,7 +565,7 @@ void ArmControl::initialize()
   servoDriver.setPWMFreq(SERVO_FREQUENCY);
   delay(WAITINIT);
 
-  initializeEEPROM();
+  //initializeEEPROM();
   initializeTriggerPin();
 
   UpdateJointState();
