@@ -1,160 +1,87 @@
 #include "ArmControl.h"
 
-using namespace ArmControl;
-
 /* ================================================================= */
-/* ===              Static variable decleration                  === */
+/* ===                      Constructor                          === */
 /* ================================================================= */
 
-/* === All joint channels and the PWM of the servos === */
-enum {
-  BASE = FIRST_JOINT,
-  RIGHT,
-  LEFT,
-  TWIST,
-  WRIST,
-  FINGER,
-  MAX_JOINT 
-};
+ArmControl::ArmControl()
+: servoDriver_()
+{
+  /* === FactoryInit_ === */
+  FactoryInit_[BASE]   = FACT_BASE_ANGLE_VAL;
+  FactoryInit_[RIGHT]  = FACT_RIGHT_ANGLE_VAL;
+  FactoryInit_[LEFT]   = FACT_LEFT_ANGLE_VAL;
+  FactoryInit_[TWIST]  = FACT_TWIST_ANGLE_VAL;
+  FactoryInit_[WRIST]  = FACT_WRIST_ANGLE_VAL;
+  FactoryInit_[FINGER] = FACT_FINGER_ANGLE_VAL;
 
-/* === Factory value for each servo of the arm === */
-static const UI_16 FactoryInit[MAX_JOINT] = {
-  FACT_BASE_ANGLE_VAL,
-  FACT_RIGHT_ANGLE_VAL,
-  FACT_LEFT_ANGLE_VAL,
-  FACT_TWIST_ANGLE_VAL,
-  FACT_WRIST_ANGLE_VAL,
-  FACT_FINGER_ANGLE_VAL
-};
+  /* === JointChannels_ === */
+  JointChannels_[BASE]   = BASE_JOINT;
+  JointChannels_[RIGHT]  = RIGHT_JOINT;
+  JointChannels_[LEFT]   = LEFT_JOINT;
+  JointChannels_[TWIST]  = TWIST_JOINT;
+  JointChannels_[WRIST]  = WRIST_JOINT;
+  JointChannels_[FINGER] = FINGER_JOINT;
 
-/* === Store current joint values read from EEPROM === */
-static UI_16 CurrentEEPROMValue[MAX_JOINT] = {{EMPTY_VALUE}};
+  /* === Pin table setup === */
+  BaseAngle_[PIN_MIN]   = BASE_MIN_ANGLE_PIN;
+  BaseAngle_[PIN_MAX]   = BASE_MAX_ANGLE_PIN;
 
-/* === Store user input joint data === */
-static UI_16 UserInputJointData[MAX_JOINT] = {{EMPTY_VALUE}};
+  RightAngle_[PIN_MIN]  = RIGHT_MIN_ANGLE_PIN;
+  RightAngle_[PIN_MAX]  = RIGHT_MAX_ANGLE_PIN;
 
-/* === Servo driver object === */
-static Adafruit_PWMServoDriver servoDriver = Adafruit_PWMServoDriver();
+  LeftAngle_[PIN_MIN]   = LEFT_MIN_ANGLE_PIN;
+  LeftAngle_[PIN_MAX]   = LEFT_MAX_ANGLE_PIN;
 
-/* === Joint channels mapping === */
-static const UI_8 JointChannels[MAX_JOINT] = {BASE_JOINT, RIGHT_JOINT, LEFT_JOINT, TWIST_JOINT, WRIST_JOINT, FINGER_JOINT};
+  TwistAngle_[PIN_MIN]  = TWIST_MIN_ANGLE_PIN;
+  TwistAngle_[PIN_MAX]  = TWIST_MAX_ANGLE_PIN;
 
-/* === Queue Structure === */
-typedef struct {
-  SI_8 front, rear, maxSize;
-  UI_16 *qBase[MAX_JOINT];
-} Trajectory;
+  WristAngle_[PIN_MIN]  = WRIST_MIN_ANGLE_PIN;
+  WristAngle_[PIN_MAX]  = WRIST_MAX_ANGLE_PIN;
 
-/* === Buffer for trajectory queues === */
-static UI_16 queueBuffer[MAX_JOINT][TRAJECTORY_QUEUE_SIZE] = {{EMPTY_VALUE}};
+  FingerAngle_[PIN_MIN] = FINGER_MIN_ANGLE_PIN;
+  FingerAngle_[PIN_MAX] = FINGER_MAX_ANGLE_PIN;
 
-/* === Trajectory queue instance === */
-static Trajectory TrajectoryQueue = {
-  QUEUE_ERROR, QUEUE_ERROR, TRAJECTORY_QUEUE_SIZE,
-  {queueBuffer[BASE], queueBuffer[RIGHT], queueBuffer[LEFT],
-   queueBuffer[TWIST], queueBuffer[WRIST], queueBuffer[FINGER]}
-};
+  PinTable_[BASE]   = BaseAngle_;
+  PinTable_[RIGHT]  = RightAngle_;
+  PinTable_[LEFT]   = LeftAngle_;
+  PinTable_[TWIST]  = TwistAngle_;
+  PinTable_[WRIST]  = WristAngle_;
+  PinTable_[FINGER] = FingerAngle_;
 
-static const UI_8 BaseAngle[] = {
-  /*     Min                    Max      */
-  BASE_MIN_ANGLE_PIN,      BASE_MAX_ANGLE_PIN
-};
+  /* === Clear arrays === */
+  for (UI_8 i = FIRST_JOINT; i < MAX_JOINT; i++) {
+    CurrentEEPROMValue_[i] = EMPTY_VALUE;
+    UserInputJointData_[i] = EMPTY_VALUE;
 
-static const UI_8 RightAngle[] = {
-  /*     Min                    Max      */
-  RIGHT_MIN_ANGLE_PIN,      RIGHT_MAX_ANGLE_PIN
-};
+    previousJointPulse_[i]  = COMMON_MIN_ANGLE;
+    currentJointPulse_[i]   = COMMON_MIN_ANGLE;
+    incomingJointPulse_[i]  = COMMON_MIN_ANGLE;
+    jointMotionComplete_[i] = D_FALSE;
 
-static const UI_8 LeftAngle[] = {
-  /*     Min                    Max      */
-  LEFT_MIN_ANGLE_PIN,      LEFT_MAX_ANGLE_PIN
-};
+    startTime_[i]      = 0;
+    lastTarget_[i]     = 0;
+    currentOutput_[i]  = COMMON_MIN_ANGLE;
+  }
 
-static const UI_8 TwistAngle[] = {
-  /*     Min                    Max      */
-  TWIST_MIN_ANGLE_PIN,      TWIST_MAX_ANGLE_PIN
-};
+  /* === Queue buffer === */
+  for (UI_8 j = FIRST_JOINT; j < MAX_JOINT; j++) {
+    for (UI_8 k = 0; k < TRAJECTORY_QUEUE_SIZE; k++) {
+      queueBuffer_[j][k] = EMPTY_VALUE;
+    }
+  }
 
-static const UI_8 WristAngle[] = {
-  /*     Min                    Max      */
-  WRIST_MIN_ANGLE_PIN,      WRIST_MAX_ANGLE_PIN
-};
+  TrajectoryQueue_.front   = QUEUE_ERROR;
+  TrajectoryQueue_.rear    = QUEUE_ERROR;
+  TrajectoryQueue_.maxSize = TRAJECTORY_QUEUE_SIZE;
 
-static const UI_8 FingerAngle[] = {
-  /*     Min                    Max      */
-  FINGER_MIN_ANGLE_PIN,      FINGER_MAX_ANGLE_PIN
-};
-
-static const UI_8 *PinTable[] = {
-  BaseAngle,
-  RightAngle,
-  LeftAngle,
-  TwistAngle,
-  WristAngle,
-  FingerAngle,
-};
-
-/* ================================================================= */
-/* ===              Static function decleration                  === */
-/* ================================================================= */
-
-/* === Commond Function === */
-
-static UI_16 AngletoValue(UI_16 angle, UI_16 minTarget, UI_16 maxTarget);
-static UI_16 ConsTrain(UI_16 value);
-static UI_16 ValuetoAngle(UI_16 value, UI_16 minTarget, UI_16 maxTarget);
-
-/* === Motion State === */
-static UI_16 previousJointPulse[MAX_JOINT] = {COMMON_MIN_ANGLE};
-static UI_16 currentJointPulse[MAX_JOINT]  = {COMMON_MIN_ANGLE};
-static UI_16 incomingJointPulse[MAX_JOINT] = {COMMON_MIN_ANGLE};
-static UI_8 jointMotionComplete[MAX_JOINT] = {D_FALSE};
-
-/* === Queue Utilities === */
-static UI_8 QueueIsFull(Trajectory *queue);
-static UI_8 QueueIsEmpty(Trajectory *queue);
-static void QueueEndQueue(Trajectory *queue, UI_16 *data);
-static void QueueDequeue(Trajectory *queue, UI_16 *dataOut);
-
-/* === Servo and Motion State Utilities === */
-static void testAllServos();
-static UI_8 isAllJointMotionComplete();
-static void prepareNextMotionStep();
-static void updateServoPositions();
-static UI_16 computeCubicTrajectory(UI_16 start, UI_16 end, UI_8 jointIdx);
-static void UpdateJointState();
-static void reportCurrentJointPositions();
-
-/* === Input Handling === */
-static void HandleDataInput(UI_16 *value, Trajectory *Queue, String rawInput);
-static void ReadManualCalib(UI_16 *value);
-static void AutoCalibration();
-static UI_16 GetTravelPoint(UI_8 joint, UI_8 pin);
-
-/* === EEPROM Utilities === */
-static void WriteDataToEEPROM(const UI_16 *value, UI_8 magic_val);
-static void ReadJointDataFromEEPROM(UI_16 *value);
-static void initializeEEPROM();
-
-/* === System input data === */
-
-static void initializeTriggerPin();
-static UI_8 GetTriggerData(UI_8 joint, UI_8 value);
-
-/* === Command maping to function === */
-
-struct CommandEntry {
-    const char* name;
-    CommandFunc func;
-};
-
-CommandEntry commands[] = {
-    {"init",   UpdateJointState},
-    {"report", reportCurrentJointPositions},
-    {"mcalib", [](){ ReadManualCalib(UserInputJointData); }},
-    {"acalib", AutoCalibration},
-    {"test",   testAllServos}
-};
+  TrajectoryQueue_.qBase[BASE]   = queueBuffer_[BASE];
+  TrajectoryQueue_.qBase[RIGHT]  = queueBuffer_[RIGHT];
+  TrajectoryQueue_.qBase[LEFT]   = queueBuffer_[LEFT];
+  TrajectoryQueue_.qBase[TWIST]  = queueBuffer_[TWIST];
+  TrajectoryQueue_.qBase[WRIST]  = queueBuffer_[WRIST];
+  TrajectoryQueue_.qBase[FINGER] = queueBuffer_[FINGER];
+}
 
 /* ================================================================= */
 /* ===              Static function defination                   === */
@@ -207,7 +134,7 @@ static UI_8 QueueIsFull(Trajectory *queue)
   return ret;
 }
 
-static UI_8 QueueIsEmpty(Trajectory *queue)
+UI_8 ArmControl::QueueIsEmpty_(Trajectory* queue)
 {
   UI_8 ret;
 
@@ -215,6 +142,7 @@ static UI_8 QueueIsEmpty(Trajectory *queue)
 
   return ret;
 }
+
 
 static void QueueEndQueue(Trajectory *queue, UI_16 *data)
 {
@@ -503,17 +431,17 @@ static UI_8 GetTriggerData(UI_8 joint, UI_8 index)
   return ret;
 }
 
-static void AutoCalibration()
+void ArmControl::AutoCalibration_()
 {
-  UI_8 joint;
-  UI_8 index;
-  UI_16 ServoAngleBuffer[joint][index];
+  UI_16 ServoAngleBuffer[MAX_JOINT][MAX_ANGLE] = {{EMPTY_VALUE}};
 
-  for (joint = FIRST_JOINT; joint < MAX_JOINT; joint++) {
-    for (index = FIRST_ANGLE; index < MAX_ANGLE; index++) {
-      ServoAngleBuffer[joint][index] = GetTravelPoint(joint, index);
+  for (UI_8 joint = FIRST_JOINT; joint < MAX_JOINT; joint++) {
+    for (UI_8 index = FIRST_ANGLE; index < MAX_ANGLE; index++) {
+      ServoAngleBuffer[joint][index] = GetTravelPoint_(joint, index);
     }
   }
+
+  // TODO: store ServoAngleBuffer -> EEPROM or print it
 }
 
 static UI_16 GetTravelPoint(UI_8 joint, UI_8 pin)
@@ -553,6 +481,23 @@ static UI_16 GetTravelPoint(UI_8 joint, UI_8 pin)
   return ret;
 }
 
+const ArmControl::CommandEntry ArmControl::commands_[] = {
+  {"init",   &ArmControl::cmdInit_},
+  {"report", &ArmControl::cmdReport_},
+  {"mcalib", &ArmControl::cmdManualCalib_},
+  {"acalib", &ArmControl::cmdAutoCalib_},
+  {"test",   &ArmControl::cmdTest_}
+};
+
+const UI_8 ArmControl::commandCount_ =
+  (UI_8)(sizeof(ArmControl::commands_) / sizeof(ArmControl::commands_[0]));
+
+void ArmControl::cmdInit_()        { UpdateJointState_(); }
+void ArmControl::cmdReport_()      { reportCurrentJointPositions_(); }
+void ArmControl::cmdManualCalib_() { ReadManualCalib_(UserInputJointData_); }
+void ArmControl::cmdAutoCalib_()   { AutoCalibration_(); }
+void ArmControl::cmdTest_()        { testAllServos_(); }
+
 /* ================================================================= */
 /* ===                  Exposed Methods                          === */
 /* ================================================================= */
@@ -560,30 +505,29 @@ static UI_16 GetTravelPoint(UI_8 joint, UI_8 pin)
 void ArmControl::initialize()
 {
   Serial.begin(SERCHNL);
-  servoDriver.begin();
-  servoDriver.setOscillatorFrequency(OCLFRQ);
-  servoDriver.setPWMFreq(SERVO_FREQUENCY);
+
+  servoDriver_.begin();
+  servoDriver_.setOscillatorFrequency(OCLFRQ);
+  servoDriver_.setPWMFreq(SERVO_FREQUENCY);
   delay(WAITINIT);
 
-  //initializeEEPROM();
-  initializeTriggerPin();
+  // initializeEEPROM_();   // enable when you want EEPROM calibration active
+  initializeTriggerPin_();
 
-  UpdateJointState();
+  UpdateJointState_();
 }
 
 void ArmControl::handleSerialCommands()
 {
-  UI_8 count;
-
   if (Serial.available() > UNAVAIL_SER) {
     String rawInput = Serial.readStringUntil('\n');
 
     if (rawInput.startsWith("b")) {
-      HandleDataInput( incomingJointPulse, &TrajectoryQueue, rawInput );
+      HandleDataInput_(incomingJointPulse_, &TrajectoryQueue_, rawInput);
     } else {
-      for (count = INIT_COMMAND ; count < (sizeof(commands)/sizeof(commands[INIT_COMMAND])); ++count) {
-        if (rawInput == commands[count].name) {
-          commands[count].func();
+      for (UI_8 i = INIT_COMMAND; i < commandCount_; ++i) {
+        if (rawInput == commands_[i].name) {
+          (this->*commands_[i].method)();
           break;
         }
       }
@@ -593,8 +537,8 @@ void ArmControl::handleSerialCommands()
 
 void ArmControl::updateMotion()
 {
-  updateServoPositions();
-  if (D_TRUE == isAllJointMotionComplete()) {
-    prepareNextMotionStep();
+  updateServoPositions_();
+  if (D_TRUE == isAllJointMotionComplete_()) {
+    prepareNextMotionStep_();
   }
 }

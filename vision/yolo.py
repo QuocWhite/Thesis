@@ -29,7 +29,7 @@ class YOLO2D:
         classes_path="model_data/coco_classes.txt",
         score=0.3,
         iou=0.45,
-        model_image_size=(416, 416),
+        model_image_size=(640, 480),
         tiny=False,
     ):
         self.model_path = model_path
@@ -168,11 +168,11 @@ def main():
         classes_path="model_data/coco_classes.txt",   # <-- your class names
         score=0.3,
         iou=0.45,
-        model_image_size=(416, 416),
+        model_image_size=(640, 480),
         tiny=False,
     )
 
-    cap = cv2.VideoCapture(2)  # change to 1 if you have multiple cameras
+    cap = cv2.VideoCapture(0)  # change to 1 if you have multiple cameras
     if not cap.isOpened():
         raise RuntimeError(
             "Could not open webcam. Try VideoCapture(1) or check permissions.")
