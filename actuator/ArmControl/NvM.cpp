@@ -17,16 +17,9 @@ void ArmControlNvM::initializeEEPROM(
 }
 /// --- End of initializeEEPROM() ---
 
-void ArmControlNvM::WriteDataToEEPROM(
-  const UI_16 *value,
-  UI_8 magic_val
-) {
-  for (UI_8 count = FIRST_JOINT;
-       count < MAX_JOINT;
-       count++) {
-    EEPROM.write(
-      START_JOINT_ADDR + count * JOINT_BYTE_SIZE +
-        MSB_OFFSET,
+void ArmControlNvM::WriteDataToEEPROM(const UI_16 *value, UI_8 magic_val) {
+  for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++) {
+    EEPROM.write(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + MSB_OFFSET,
       (value[count] >> SHIFT_BYTE) & BYTE_MASK
     );
     EEPROM.write(

@@ -10,68 +10,108 @@ ArmControl::ArmControl() {
     {"test",   [this](){ this->testAllServos(); }}
   };
 }
-/// --- End of ArmControl::ArmControl() ---
 
 /* === Common Functions === */
 UI_16 ArmControl::AngletoValue(UI_16 angle, UI_16 minTarget, UI_16 maxTarget) {
-  UI_16 convertedAngle = ConsTrain(angle);
-  return (convertedAngle - SERVO_MIN_SOURCE) * (maxTarget - minTarget) / (SERVO_MAX_SOURCE - SERVO_MIN_SOURCE) + minTarget;
+  UI_16 convertedAngle;
+  UI_16 ret;
+
+  convertedAngle = ConsTrain(angle);
+
+  ret = (convertedAngle - SERVO_MIN_SOURCE) * (maxTarget - minTarget) /
+        (SERVO_MAX_SOURCE - SERVO_MIN_SOURCE) + minTarget;
+
+  return ret;
 }
-/// --- End of AngletoValue() ---
 
 UI_16 ArmControl::ConsTrain(UI_16 value) {
-  if (value < SERVO_MIN_SOURCE) return SERVO_MIN_SOURCE;
-  if (value > SERVO_MAX_SOURCE) return SERVO_MAX_SOURCE;
+
+  if (value < SERVO_MIN_SOURCE)
+  {
+    value = SERVO_MIN_SOURCE;
+  }
+  else if (value > SERVO_MAX_SOURCE)
+  {
+    value = SERVO_MAX_SOURCE;
+  }
+  else
+  {
+    /* do nothing */
+  }
+
   return value;
 }
-/// --- End of ConsTrain() ---
 
 UI_16 ArmControl::ValuetoAngle(UI_16 value, UI_16 minTarget, UI_16 maxTarget) {
-  return ((value - minTarget) * (SERVO_MAX_SOURCE - SERVO_MIN_SOURCE)) / (maxTarget - minTarget) + SERVO_MIN_SOURCE;
+  UI_16 ret;
+
+  ret = ((value - minTarget) * (SERVO_MAX_SOURCE - SERVO_MIN_SOURCE)) /
+         (maxTarget - minTarget) + SERVO_MIN_SOURCE;
+
+  return ret;
 }
-/// --- End of ValuetoAngle() ---
 
 /* === Queue Utilities === */
 UI_8 ArmControl::QueueIsFull(Trajectory *queue) {
-  return (queue->front == (queue->rear + INCREASE) % queue->maxSize) ? D_TRUE : D_FALSE;
+  UI_8 ret;
+
+  ret = (queue->front == (queue->rear + INCREASE) % queue->maxSize) ?
+        D_TRUE : D_FALSE;
+
+  return ret;
 }
-/// --- End of QueueIsFull() ---
 
 UI_8 ArmControl::QueueIsEmpty(Trajectory *queue) {
-  return (queue->front == QUEUE_ERROR) ? D_TRUE : D_FALSE;
+  UI_8 ret;
+
+  ret = (queue->front == QUEUE_ERROR) ? D_TRUE : D_FALSE;
+
+  return ret;
 }
-/// --- End of QueueIsEmpty() ---
 
 void ArmControl::QueueEndQueue(Trajectory *queue, UI_16 *data) {
-  if ((D_FALSE == QueueIsFull(queue)) || (D_TRUE == QueueIsEmpty(queue))) {
+  if ((D_FALSE == QueueIsFull(queue)) ||
+      (D_TRUE == QueueIsEmpty(queue)))
+  {
     queue->front = QUEUE_EMPTY;
     queue->rear = (queue->rear + INCREASE) % queue->maxSize;
+
     for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++)
+    {
       queue->qBase[count][queue->rear] = data[count];
     }
-}
-/// --- End of QueueEndQueue() ---
-
-void ArmControl::QueueDequeue(Trajectory *queue, UI_16 *dataOut) {
-  if (D_FALSE == QueueIsEmpty(queue)) {
-    for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++)
-      dataOut[count] = queue->qBase[count][queue->front];
-      if (queue->front == queue->rear) {
-        queue->front = QUEUE_ERROR;
-        queue->rear = QUEUE_ERROR;
-      } else {
-        queue->front = (queue->front + INCREASE) % queue->maxSize;
-      }
   }
 }
-/// --- End of QueueDequeue() ---
+
+void ArmControl::QueueDequeue(Trajectory *queue, UI_16 *dataOut) {
+  if (D_FALSE == QueueIsEmpty(queue))
+  {
+    for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++)
+    {
+      dataOut[count] = queue->qBase[count][queue->front];
+      if (queue->front == queue->rear)
+      {
+        queue->front = QUEUE_ERROR;
+        queue->rear = QUEUE_ERROR;
+      } else
+      {
+        queue->front = (queue->front + INCREASE) % queue->maxSize;
+      }
+    }
+  }
+}
 
 /* === Servo and Motion State Utilities === */
 void ArmControl::testAllServos() {
-  UI_16 pulseMin = COMMON_MIN_ANGLE;
-  UI_16 pulseMid = (COMMON_MIN_ANGLE + COMMON_MAX_ANGLE) / MED_DEVIDE;
+  UI_16 pulseMin;
+  UI_16 pulseMid;
+  UI_8 count;
 
-  for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++) {
+  pulseMin = COMMON_MIN_ANGLE;
+  pulseMid = (COMMON_MIN_ANGLE + COMMON_MAX_ANGLE) / MED_DEVIDE;
+
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++)
+  {
     if (FINGER == count) {
       pulseMin = FACT_FINGER_MIN_ANGLE;
       pulseMid = FACT_FINGER_MAX_ANGLE;
@@ -82,97 +122,145 @@ void ArmControl::testAllServos() {
     delay(DELAY_TIME);
   }
 }
-/// --- End of testAllServos() ---
 
 UI_8 ArmControl::isAllJointMotionComplete() {
-  for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++)
-    if (D_FALSE == jointMotionComplete[count]) return D_FALSE;
-  return D_TRUE;
+  UI_8 count;
+  UI_8 ret;
+
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++)
+  {
+    ret = D_TRUE;
+    if (D_FALSE == jointMotionComplete[count])
+    {
+      ret = D_FALSE;
+    }
+  }
+
+  return ret;
 }
-/// --- End of isAllJointMotionComplete() ---
 
 void ArmControl::prepareNextMotionStep() {
-  for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++) {
+  UI_8 count;
+
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++)
+  {
     previousJointPulse[count] = currentJointPulse[count];
     jointMotionComplete[count] = D_FALSE;
   }
   if (D_FALSE == QueueIsEmpty(&TrajectoryQueue))
+  {
     QueueDequeue(&TrajectoryQueue, currentJointPulse);
+  }
 }
-/// --- End of prepareNextMotionStep() ---
 
 void ArmControl::updateServoPositions() {
-  for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++)
+  UI_8 count;
+
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++)
+  {
     servoDriver.writeMicroseconds(JointChannels[count],
     computeCubicTrajectory(previousJointPulse[count],
     currentJointPulse[count], count));
+  }
 }
-/// --- End of updateServoPositions() ---
 
 UI_16 ArmControl::computeCubicTrajectory(UI_16 startPos, UI_16 endPos, UI_8 jointIdx) {
   static UI_16 startTime[MAX_JOINT];
   static UI_16 lastTarget[MAX_JOINT];
   static UI_16 currentOutput[MAX_JOINT];
-  SI_32 delta = (SI_32)endPos - (SI_32)startPos;
-  if (lastTarget[jointIdx] != endPos) {
+  UI_16 ret;
+  SI_32 delta;
+  UI_16 elapsedMs;
+  SI_32 T;
+  SI_32 t;
+  SI_32 a0;
+  SI_32 a1;
+  SI_32 a2;
+  SI_32 a3;
+  SI_32 pos;
+  UI_16 elapsedMs
+
+  delta = (SI_32)endPos - (SI_32)startPos;
+
+  if (lastTarget[jointIdx] != endPos)
+  {
     startTime[jointIdx] = millis();
     lastTarget[jointIdx] = endPos;
   }
-  UI_16 elapsedMs = millis() - startTime[jointIdx];
-  SI_32 T = MOTION_DURATION;
-  SI_32 t = elapsedMs;
-  SI_32 a0 = startPos * CUBIC_SCALE_POS;
-  SI_32 a1 = CUBIC_ZERO;
-  SI_32 a2 = (CUBIC_COEFF_A2 * delta * CUBIC_SCALE_A2) / (T * T);
-  SI_32 a3 = (CUBIC_COEFF_A3 * delta * CUBIC_SCALE_A3) / (T * T * T);
-  SI_32 pos;
-  if (t <= T) {
+  elapsedMs = millis() - startTime[jointIdx];
+  T = MOTION_DURATION;
+  t = elapsedMs;
+  a0 = startPos * CUBIC_SCALE_POS;
+  a1 = CUBIC_ZERO;
+  a2 = (CUBIC_COEFF_A2 * delta * CUBIC_SCALE_A2) / (T * T);
+  a3 = (CUBIC_COEFF_A3 * delta * CUBIC_SCALE_A3) / (T * T * T);
+
+  if (t <= T)
+  {
     pos = a0 / CUBIC_SCALE_POS + (a1 * t)
         + (a2 * t * t) / CUBIC_SCALE_A2
         + (a3 * t * t * t) / CUBIC_SCALE_A3;
     currentOutput[jointIdx] = (UI_16)pos;
-  } else {
+  }
+  else
+  {
     jointMotionComplete[jointIdx] = D_TRUE;
     currentOutput[jointIdx] = endPos;
   }
-  return currentOutput[jointIdx];
-}/// --- End of computeCubicTrajectory() ---
+
+  ret = currentOutput[jointIdx];
+
+  return ret;
+}
 
 void ArmControl::UpdateJointState() {
-  for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++)
+  UI_8 count;
+
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++)
+  {
     previousJointPulse[count] = CurrentEEPROMValue[count];
-  for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++) {
+  }
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++)
+  {
     currentJointPulse[count] = previousJointPulse[count];
     servoDriver.writeMicroseconds(JointChannels[count], currentJointPulse[count]);
   }
 }
-/// --- End of UpdateJointState() ---
 
 void ArmControl::reportCurrentJointPositions() {
-  UI_16 pulseMin = COMMON_MIN_ANGLE;
-  UI_16 pulseMax = COMMON_MAX_ANGLE;
+  UI_16 pulseMin;
+  UI_16 pulseMax;
+  UI_8 count;
+  UI_16 val;
+
+  pulseMin = COMMON_MIN_ANGLE;
+  pulseMax = COMMON_MAX_ANGLE;
+
   Serial.print("Current joint pulses: ");
-  for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++) {
-    if (FINGER == count) {
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++)
+  {
+    if (FINGER == count)
+    {
       pulseMin = FACT_FINGER_MIN_ANGLE;
       pulseMax = FACT_FINGER_MAX_ANGLE;
     }
-    UI_16 val = ValuetoAngle(currentJointPulse[count], pulseMin, pulseMax);
+    val = ValuetoAngle(currentJointPulse[count], pulseMin, pulseMax);
     Serial.print(val);
     Serial.print(count < FINGER ? ", " : "\n");
   }
 }
-/// --- End of reportCurrentJointPositions() ---
 
 /* === Input Handling === */
 void ArmControl::HandleDataInput(UI_16 *value, Trajectory *Queue, String rawInput) {
   UI_16 base, right, left, twist, wrist, finger;
+
   base   = rawInput.substring(FIRST_INPUT, rawInput.indexOf('r')).toInt();
   right  = rawInput.substring(rawInput.indexOf('r') + INCREASE, rawInput.indexOf('l')).toInt();
   left   = rawInput.substring(rawInput.indexOf('l') + INCREASE, rawInput.indexOf('t')).toInt();
   twist  = rawInput.substring(rawInput.indexOf('t') + INCREASE, rawInput.indexOf('w')).toInt();
   wrist  = rawInput.substring(rawInput.indexOf('w') + INCREASE, rawInput.indexOf('f')).toInt();
   finger = rawInput.substring(rawInput.indexOf('f') + INCREASE).toInt();
+
   value[BASE]   = AngletoValue(base,   FACT_BASE_MIN_ANGLE,   FACT_BASE_MAX_ANGLE);
   value[RIGHT]  = AngletoValue(right,  FACT_RIGHT_MIN_ANGLE,  FACT_RIGHT_MAX_ANGLE);
   value[LEFT]   = AngletoValue(left,   FACT_LEFT_MIN_ANGLE,   FACT_LEFT_MAX_ANGLE);
@@ -181,47 +269,56 @@ void ArmControl::HandleDataInput(UI_16 *value, Trajectory *Queue, String rawInpu
   value[FINGER] = AngletoValue(finger, FACT_FINGER_MIN_ANGLE, FACT_FINGER_MAX_ANGLE);
   QueueEndQueue(Queue, value);
 }
-/// --- End of HandleDataInput() ---
 
 void ArmControl::ReadManualCalib(UI_16 *value) {
-  for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++) {
-    UI_8 low = Serial.read();
-    UI_8 high = Serial.read();
+  UI_8 count;
+  UI_8 low;
+  UI_8 high;
+
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++)
+  {
+    low = Serial.read();
+    high = Serial.read();
     value[count] = (high << SHIFT_BYTE) | low;
   }
   WriteDataToEEPROM(value, MAGIC_MODF_VAL);
   ReadJointDataFromEEPROM(CurrentEEPROMValue);
 }
-/// --- End of ReadManualCalib() ---
 
 /* === EEPROM Utilities === */
 void ArmControl::WriteDataToEEPROM(const UI_16 *value, UI_8 magic_val) {
-  for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++) {
-    EEPROM.write(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + MSB_OFFSET, (value[count] >> SHIFT_BYTE) & BYTE_MASK);
-    EEPROM.write(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + LSB_OFFSET, value[count] & BYTE_MASK);
+  UI_8 count;
+
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
+    EEPROM.write(START_JOINT_ADDR + count * JOINT_BYTE_SIZE +
+                 MSB_OFFSET, (value[count] >> SHIFT_BYTE) & BYTE_MASK);
+    EEPROM.write(START_JOINT_ADDR + count * JOINT_BYTE_SIZE +
+                 LSB_OFFSET, value[count] & BYTE_MASK);
   }
   EEPROM.write(MAGIC_ADDR, magic_val);
   EEPROM.commit();
 }
-/// --- End of WriteDataToEEPROM() ---
 
 void ArmControl::ReadJointDataFromEEPROM(UI_16 *value) {
-  for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++) {
-    UI_8 msb = EEPROM.read(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + MSB_OFFSET);
-    UI_8 lsb = EEPROM.read(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + LSB_OFFSET);
+  UI_8 count;
+  UI_8 msb;
+  UI_8 lsb;
+
+  for (count = FIRST_JOINT; count < MAX_JOINT; count++) {
+    msb = EEPROM.read(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + MSB_OFFSET);
+    lsb = EEPROM.read(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + LSB_OFFSET);
     value[count] = ((msb << SHIFT_BYTE) | lsb);
   }
 }
-/// --- End of ReadJointDataFromEEPROM() ---
 
 void ArmControl::initializeEEPROM() {
-  if (!EEPROM.begin(EEPROM_SIZE)) return;
-  UI_8 eepVal = EEPROM.read(MAGIC_ADDR);
-  if ((eepVal != MAGIC_INIT_VAL) && (eepVal != MAGIC_MODF_VAL))
-    WriteDataToEEPROM(FactoryInit, MAGIC_INIT_VAL);
-  ReadJointDataFromEEPROM(CurrentEEPROMValue);
+  UI_8 eepVal;
+
+  if (!EEPROM.begin(EEPROM_SIZE))
+  {
+    return;
+  }
 }
-/// --- End of initializeEEPROM() ---
 
 /* === System input data === */
 void ArmControl::initializeTriggerPin() {
@@ -229,12 +326,10 @@ void ArmControl::initializeTriggerPin() {
     for (UI_8 index = FIRST_ANGLE; index < MAX_ANGLE; index++)
       pinMode(PinTable[joint][index], INPUT);
 }
-/// --- End of initializeTriggerPin() ---
 
 UI_8 ArmControl::GetTriggerData(UI_8 joint, UI_8 index) {
   return digitalRead(PinTable[joint][index]);
 }
-/// --- End of GetTriggerData() ---
 
 void ArmControl::AutoCalibration() {
   UI_16 ServoAngleBuffer[MAX_JOINT][MAX_ANGLE];
@@ -242,7 +337,6 @@ void ArmControl::AutoCalibration() {
     for (UI_8 index = FIRST_ANGLE; index < MAX_ANGLE; index++)
       ServoAngleBuffer[joint][index] = GetTravelPoint(joint, index);
 }
-/// --- End of AutoCalibration() ---
 
 UI_16 ArmControl::GetTravelPoint(UI_8 joint, UI_8 pin) {
   UI_8 triggerData = GetTriggerData(joint, pin);
@@ -270,7 +364,6 @@ UI_16 ArmControl::GetTravelPoint(UI_8 joint, UI_8 pin) {
   }
   return ret;
 }
-/// --- End of GetTravelPoint() ---
 
 /* === Exposed Methods === */
 void ArmControl::initialize() {
@@ -283,7 +376,6 @@ void ArmControl::initialize() {
   initializeTriggerPin();
   UpdateJointState();
 }
-/// --- End of initialize() ---
 
 void ArmControl::handleSerialCommands() {
   if (Serial.available() <= UNAVAIL_SER) return;
@@ -299,12 +391,10 @@ void ArmControl::handleSerialCommands() {
     }
   }
 }
-/// --- End of handleSerialCommands() ---
 
 void ArmControl::updateMotion() {
   updateServoPositions();
   if (D_TRUE == isAllJointMotionComplete())
     prepareNextMotionStep();
 }
-/// --- End of updateMotion() ---
 
