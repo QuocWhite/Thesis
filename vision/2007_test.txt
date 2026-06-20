@@ -1,0 +1,12 @@
+C:\Users\Andrii\AppData\Local\Programs\Python\Python36\keras_yolo3_train/VOCdevkit/VOC2007/JPEGImages/data4.png 1,1,639,476,0
+C:\Users\Andrii\AppData\Local\Programs\Python\Python36\keras_yolo3_train/VOCdevkit/VOC2007/JPEGImages/data14.png 107,7,547,469,1
+C:\Users\Andrii\AppData\Local\Programs\Python\Python36\keras_yolo3_train/VOCdevkit/VOC2007/JPEGImages/data29.png 2,62,639,475,1
+C:\Users\Andrii\AppData\Local\Programs\Python\Python36\keras_yolo3_train/VOCdevkit/VOC2007/JPEGImages/data31.png 27,51,622,412,0
+C:\Users\Andrii\AppData\Local\Programs\Python\Python36\keras_yolo3_train/VOCdevkit/VOC2007/JPEGImages/data42.png 199,73,441,406,1
+C:\Users\Andrii\AppData\Local\Programs\Python\Python36\keras_yolo3_train/VOCdevkit/VOC2007/JPEGImages/data54.png 21,1,618,302,0
+C:\Users\Andrii\AppData\Local\Programs\Python\Python36\keras_yolo3_train/VOCdevkit/VOC2007/JPEGImages/data62.png 1,78,639,347,0
+C:\Users\Andrii\AppData\Local\Programs\Python\Python36\keras_yolo3_train/VOCdevkit/VOC2007/JPEGImages/data73.png 86,102,550,375,1
+C:\Users\Andrii\AppData\Local\Programs\Python\Python36\keras_yolo3_train/VOCdevkit/VOC2007/JPEGImages/data88.png 6,42,630,271,0
+C:\Users\Andrii\AppData\Local\Programs\Python\Python36\keras_yolo3_train/VOCdevkit/VOC2007/JPEGImages/data104.png 191,24,442,434,1
+C:\Users\Andrii\AppData\Local\Programs\Python\Python36\keras_yolo3_train/VOCdevkit/VOC2007/JPEGImages/data151.png 53,85,455,232,0
+C:\Users\Andrii\AppData\Local\Programs\Python\Python36\keras_yolo3_train/VOCdevkit/VOC2007/JPEGImages/data156_2.png 29,16,594,258,0
