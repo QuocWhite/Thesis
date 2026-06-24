@@ -34,10 +34,10 @@ def value_to_angle(value, min_target, max_target):
 
 
 class TrajectoryQueue:
-    """Circular queue for multi-joint trajectory waypoints."""
+    """Circular buffer for multi-joint trajectory waypoints (matches firmware)."""
 
     def __init__(self, size, max_joint):
-        self.queue = [[] for _ in range(max_joint)]
+        self.buffer = [[0] * size for _ in range(max_joint)]
         self.front = -1
         self.rear = -1
         self.max_size = size
@@ -58,19 +58,17 @@ class TrajectoryQueue:
         if self.is_empty():
             self.front = 0
             self.rear = 0
-            for i in range(self.max_joint):
-                self.queue[i] = [data[i]]
         else:
             self.rear = (self.rear + 1) % self.max_size
-            for i in range(self.max_joint):
-                self.queue[i].append(data[i])
+        for i in range(self.max_joint):
+            self.buffer[i][self.rear] = data[i]
         return True
 
     def dequeue(self):
         """Pop the front multi-joint waypoint from the queue."""
         if self.is_empty():
             return None
-        data = [self.queue[i][self.front] for i in range(self.max_joint)]
+        data = [self.buffer[i][self.front] for i in range(self.max_joint)]
         if self.front == self.rear:
             self.front = -1
             self.rear = -1

@@ -40,11 +40,18 @@ Quoc/
 │   ├── ArmControl/             Firmware source (C++)
 │   │   ├── ArmControl.ino      Entry point
 │   │   ├── ArmControl.h        Configuration, pin assignments, class API
-│   │   ├── ArmControl.cpp      6-axis motion control, cubic trajectory, serial parser
-│   │   └── Test/               Host-side integration & unit tests
+│   │   └── ArmControl.cpp      6-axis motion control, cubic trajectory, serial parser
 │   └── Finger/                 3D-printable gripper STL files
 ├── command/                    Serial communication bridge
 │   └── command_handeler.py     Sends joint data & commands to Arduino
+├── Test/                       Host-side integration & unit tests
+│   ├── test_system.py          Kinematics, serial bridge, voice parsing, pipeline, 3D viz
+│   ├── test_armcontrol.py      Python port of firmware logic (18 unit/stress tests)
+│   ├── armcontrol.py           Python port of firmware TrajectoryQueue
+│   ├── Arm_IT_test.cpp         C++ host endurance test (10k steps)
+│   ├── Arm                     Compiled C++ test binary
+│   ├── arm_fk_plot.png         Generated 3D FK visualization
+│   └── arm_ik_plot.png         Generated IK convergence plot
 ├── main.py                     Pipeline entry point
 ├── run_sys.sh                  Startup script (activates venv, runs main.py)
 └── requirements.txt
@@ -73,9 +80,19 @@ Example: `b90r45l60t0w30f50\n` sets all 6 joints.
 
 - **Servo driver:** PCA9685 16-channel PWM controller (I²C)
 - **Cubic trajectory interpolation:** Smooth point-to-point motion with configurable duration (150 ms per segment)
-- **Trajectory queue:** Circular buffer (16 waypoints) for multi-step sequences
+- **Trajectory queue:** 2D circular buffer (`queueBuffer_[MAX_JOINT][TRAJECTORY_QUEUE_SIZE]`) for multi-step sequences
 - **Joint limits:** Configurable min/max pulse widths per joint via hardware trigger pins
 - **EEPROM calibration:** Stores calibrated pulse ranges persistently
+
+### Firmware Fixes Applied
+
+The C++ firmware (`ArmControl.h`/`.cpp`) received the following fixes:
+- **Dead macro removal:** 6 unused macros removed from `ArmControl.h`
+- **Typo correction:** `MED_DEVIDE` renamed to `MIDPOINT_DIV`
+- **Semantic rename:** 3 misleading names (`QUEUE_ERROR`→`QUEUE_ERR`, `UNAVAIL_SER`→`SER_ERR`, `INCREASE`→`INC_STEP`) — private methods in `ArmControl.cpp`
+- **Private method naming:** 15 methods unified to camelCase convention
+- **Integer overflow fix:** 5 overflow bugs in `computeCubicTrajectory_` fixed with `int64_t` casts to prevent wrap-around on large intermediate products
+- **Output clamping:** Cubic interpolation results clamped to `[COMMON_MIN_ANGLE, COMMON_MAX_ANGLE]` to protect servos from overshoot
 
 ### Hardware Pin Mapping
 
@@ -107,6 +124,18 @@ Each joint has dedicated trigger pins for limit/calibration:
 - Inverse kinematics via Jacobian pseudoinverse (damped least-squares)
 - Euler angle extraction from rotation matrices
 - Configurable iteration count, tolerance, and learning rate
+- Numerical Jacobian via finite-difference perturbation (fixed: input arrays auto-cast to float to prevent integer truncation of perturbations)
+
+### Tests (`Test/`)
+- **`test_system.py`** — 16 integration tests:
+  - 4 kinematics tests: FK at zero (checking x≈155, y≈0, z≈−118 per DH convention), FK at known angles, IK roundtrip (solve → FK → error < 1.0), Jacobian shape (6×6) and rank validation
+  - 3 serial bridge tests (mocked): protocol format verification, text commands, concatenated sends
+  - 6 voice parsing tests (conditionally skipped without `noisereduce`): action/object extraction for *take/pick/grab/get*, case insensitivity, no-action
+  - 1 full pipeline test: mocked voice → YOLO → IK → serial → roundtrip verification
+  - 2 3D visualization tests: `arm_fk_plot.png` (3-configuration arm layout), `arm_ik_plot.png` (convergence curve + solved arm)
+- **`test_armcontrol.py`** — 18 unit/stress tests for the Python firmware port (edge-case clamping, trajectory queue overflow, cubic interpolation)
+- **`armcontrol.py`** — Python port of `TrajectoryQueue` with 2D circular buffer
+- **`Arm_IT_test.cpp`** — C++ host endurance test (10k iterations, all 7 tests passing)
 
 ### Command Bridge (`command/command_handeler.py`)
 - Serial communication with Arduino Mega
