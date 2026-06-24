@@ -27,6 +27,7 @@ def transform_matrix_to_pose_vector(transform_matrix):
 
 
 def compute_forward_kinematics(joint_angles_deg):
+    joint_angles_deg = np.asarray(joint_angles_deg, dtype=float)
     joint_angles_rad = joint_angles_deg * np.pi / 180
     dh_parameters = np.array([
         [75, joint_angles_rad[0], 42, np.pi / 2],
@@ -53,6 +54,7 @@ def compute_forward_kinematics(joint_angles_deg):
 
 
 def compute_jacobian_matrix(joint_angles_deg):
+    joint_angles_deg = np.asarray(joint_angles_deg, dtype=float)
     jacobian = np.zeros((6, 6))
     delta = 1e-3
     base_pose = transform_matrix_to_pose_vector(
@@ -69,6 +71,7 @@ def compute_jacobian_matrix(joint_angles_deg):
 
 def inverse_kinematics_solver(target_pose_vector, initial_joint_angles_deg,
                               max_iterations=500, tolerance=1e-2, learning_rate=0.5):
+    target_pose_vector = np.asarray(target_pose_vector).reshape(6, 1).astype(float)
     joint_angles = initial_joint_angles_deg.copy().astype(float)
     for _ in range(max_iterations):
         current_pose_vector = transform_matrix_to_pose_vector(
