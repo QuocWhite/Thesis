@@ -61,8 +61,8 @@ ArmControl::ArmControl()
     }
   }
 
-  TrajectoryQueue_.front   = QUEUE_ERROR;
-  TrajectoryQueue_.rear    = QUEUE_ERROR;
+  TrajectoryQueue_.front   = QUEUE_NULL_IDX;
+  TrajectoryQueue_.rear    = QUEUE_NULL_IDX;
   TrajectoryQueue_.maxSize = TRAJECTORY_QUEUE_SIZE;
 
   TrajectoryQueue_.qBase[BASE]   = queueBuffer_[BASE];
@@ -77,7 +77,7 @@ ArmControl::ArmControl()
 /* ===              Conversion Helpers (Member)                   === */
 /* ================================================================= */
 
-UI_16 ArmControl::ConsTrain_(UI_16 value)
+UI_16 ArmControl::constrain_(UI_16 value)
 {
   UI_16 ret;
   if (value < SERVO_MIN_SOURCE) {
@@ -90,14 +90,14 @@ UI_16 ArmControl::ConsTrain_(UI_16 value)
   return ret;
 }
 
-UI_16 ArmControl::AngletoValue_(UI_16 angle, UI_16 minTarget, UI_16 maxTarget)
+UI_16 ArmControl::angleToValue_(UI_16 angle, UI_16 minTarget, UI_16 maxTarget)
 {
-  UI_16 convertedAngle = ConsTrain_(angle);
+  UI_16 convertedAngle = constrain_(angle);
   UI_16 value = (convertedAngle - SERVO_MIN_SOURCE) * (maxTarget - minTarget) / (SERVO_MAX_SOURCE - SERVO_MIN_SOURCE) + minTarget;
   return value;
 }
 
-UI_16 ArmControl::ValuetoAngle_(UI_16 value, UI_16 minTarget, UI_16 maxTarget)
+UI_16 ArmControl::valueToAngle_(UI_16 value, UI_16 minTarget, UI_16 maxTarget)
 {
   UI_16 angle = ((value - minTarget) * (SERVO_MAX_SOURCE - SERVO_MIN_SOURCE)) / (maxTarget - minTarget) + SERVO_MIN_SOURCE;
   return angle;
@@ -107,38 +107,38 @@ UI_16 ArmControl::ValuetoAngle_(UI_16 value, UI_16 minTarget, UI_16 maxTarget)
 /* ===              Queue Utilities (Member)                      === */
 /* ================================================================= */
 
-UI_8 ArmControl::QueueIsFull_(Trajectory* queue)
+UI_8 ArmControl::queueIsFull_(Trajectory* queue)
 {
-  return (queue->front == (queue->rear + INCREASE) % queue->maxSize) ? D_TRUE : D_FALSE;
+  return (queue->front == (queue->rear + INCREMENT) % queue->maxSize) ? D_TRUE : D_FALSE;
 }
 
-UI_8 ArmControl::QueueIsEmpty_(Trajectory* queue)
+UI_8 ArmControl::queueIsEmpty_(Trajectory* queue)
 {
-  return (queue->front == QUEUE_ERROR) ? D_TRUE : D_FALSE;
+  return (queue->front == QUEUE_NULL_IDX) ? D_TRUE : D_FALSE;
 }
 
-void ArmControl::QueueEndQueue_(Trajectory* queue, UI_16* data)
+void ArmControl::enqueue_(Trajectory* queue, UI_16* data)
 {
-  if ((D_FALSE == QueueIsFull_(queue)) || (D_TRUE == QueueIsEmpty_(queue))) {
+  if ((D_FALSE == queueIsFull_(queue)) || (D_TRUE == queueIsEmpty_(queue))) {
     queue->front = QUEUE_EMPTY;
-    queue->rear = (queue->rear + INCREASE) % queue->maxSize;
+    queue->rear = (queue->rear + INCREMENT) % queue->maxSize;
     for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++) {
       queue->qBase[count][queue->rear] = data[count];
     }
   }
 }
 
-void ArmControl::QueueDequeue_(Trajectory* queue, UI_16* dataOut)
+void ArmControl::dequeue_(Trajectory* queue, UI_16* dataOut)
 {
-  if (D_FALSE == QueueIsEmpty_(queue)) {
+  if (D_FALSE == queueIsEmpty_(queue)) {
     for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++) {
       dataOut[count] = queue->qBase[count][queue->front];
     }
     if (queue->front == queue->rear) {
-      queue->front = QUEUE_ERROR;
-      queue->rear  = QUEUE_ERROR;
+      queue->front = QUEUE_NULL_IDX;
+      queue->rear  = QUEUE_NULL_IDX;
     } else {
-      queue->front = (queue->front + INCREASE) % queue->maxSize;
+      queue->front = (queue->front + INCREMENT) % queue->maxSize;
     }
   }
 }
@@ -150,7 +150,7 @@ void ArmControl::QueueDequeue_(Trajectory* queue, UI_16* dataOut)
 void ArmControl::testAllServos_()
 {
   UI_16 pulseMin = COMMON_MIN_ANGLE;
-  UI_16 pulseMid = (COMMON_MIN_ANGLE + COMMON_MAX_ANGLE) / MED_DEVIDE;
+  UI_16 pulseMid = (COMMON_MIN_ANGLE + COMMON_MAX_ANGLE) / MIDPOINT_DIV;
 
   for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++) {
     if (FINGER == count) {
@@ -183,8 +183,8 @@ void ArmControl::prepareNextMotionStep_()
     previousJointPulse_[count] = currentJointPulse_[count];
     jointMotionComplete_[count] = D_FALSE;
   }
-  if (D_FALSE == QueueIsEmpty_(&TrajectoryQueue_)) {
-    QueueDequeue_(&TrajectoryQueue_, currentJointPulse_);
+  if (D_FALSE == queueIsEmpty_(&TrajectoryQueue_)) {
+    dequeue_(&TrajectoryQueue_, currentJointPulse_);
   }
 }
 
@@ -212,13 +212,15 @@ UI_16 ArmControl::computeCubicTrajectory_(UI_16 startPos, UI_16 endPos, UI_8 joi
 
   SI_32 a0 = (SI_32)startPos * CUBIC_SCALE_POS;
   SI_32 a1 = CUBIC_ZERO;
-  SI_32 a2 = (CUBIC_COEFF_A2 * delta * CUBIC_SCALE_A2) / (T * T);
-  SI_32 a3 = (CUBIC_COEFF_A3 * delta * CUBIC_SCALE_A3) / (T * T * T);
+  SI_32 a2 = (SI_32)((int64_t)CUBIC_COEFF_A2 * delta * CUBIC_SCALE_A2 / (T * T));
+  SI_32 a3 = (SI_32)((int64_t)CUBIC_COEFF_A3 * delta * CUBIC_SCALE_A3 / (T * T * T));
 
   if (t <= T) {
     SI_32 pos = a0 / CUBIC_SCALE_POS
-              + (a2 * t * t) / CUBIC_SCALE_A2
-              + (a3 * t * t * t) / CUBIC_SCALE_A3;
+              + (SI_32)((int64_t)a2 * t * t / CUBIC_SCALE_A2)
+              + (SI_32)((int64_t)a3 * t * t * t / CUBIC_SCALE_A3);
+    if (pos < (SI_32)COMMON_MIN_ANGLE) pos = COMMON_MIN_ANGLE;
+    if (pos > (SI_32)COMMON_MAX_ANGLE) pos = COMMON_MAX_ANGLE;
     currentOutput_[jointIdx] = (UI_16)pos;
   } else {
     jointMotionComplete_[jointIdx] = D_TRUE;
@@ -227,7 +229,7 @@ UI_16 ArmControl::computeCubicTrajectory_(UI_16 startPos, UI_16 endPos, UI_8 joi
   return currentOutput_[jointIdx];
 }
 
-void ArmControl::UpdateJointState_()
+void ArmControl::updateJointState_()
 {
   for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++) {
     previousJointPulse_[count] = FactoryInit_[count];
@@ -248,7 +250,7 @@ void ArmControl::reportCurrentJointPositions_()
       pulseMin = FACT_FINGER_MIN_ANGLE;
       pulseMax = FACT_FINGER_MAX_ANGLE;
     }
-    UI_16 val = ValuetoAngle_(currentJointPulse_[count], pulseMin, pulseMax);
+    UI_16 val = valueToAngle_(currentJointPulse_[count], pulseMin, pulseMax);
     Serial.print(val);
     Serial.print(count < FINGER ? ", " : "\n");
   }
@@ -258,7 +260,7 @@ void ArmControl::reportCurrentJointPositions_()
 /* ===              Input Handling                                === */
 /* ================================================================= */
 
-void ArmControl::HandleDataInput_(UI_16* value, Trajectory* Queue, String rawInput)
+void ArmControl::handleDataInput_(UI_16* value, Trajectory* Queue, String rawInput)
 {
   UI_16 base    = rawInput.substring(rawInput.indexOf('b') + 1, rawInput.indexOf('r')).toInt();
   UI_16 right   = rawInput.substring(rawInput.indexOf('r') + 1, rawInput.indexOf('l')).toInt();
@@ -267,34 +269,34 @@ void ArmControl::HandleDataInput_(UI_16* value, Trajectory* Queue, String rawInp
   UI_16 wrist   = rawInput.substring(rawInput.indexOf('w') + 1, rawInput.indexOf('f')).toInt();
   UI_16 finger  = rawInput.substring(rawInput.indexOf('f') + 1).toInt();
 
-  value[BASE]   = AngletoValue_(base,   FACT_BASE_MIN_ANGLE,   FACT_BASE_MAX_ANGLE);
-  value[RIGHT]  = AngletoValue_(right,  FACT_RIGHT_MIN_ANGLE,  FACT_RIGHT_MAX_ANGLE);
-  value[LEFT]   = AngletoValue_(left,   FACT_LEFT_MIN_ANGLE,   FACT_LEFT_MAX_ANGLE);
-  value[TWIST]  = AngletoValue_(twist,  FACT_TWIST_MIN_ANGLE,  FACT_TWIST_MAX_ANGLE);
-  value[WRIST]  = AngletoValue_(wrist,  FACT_WRIST_MIN_ANGLE,  FACT_WRIST_MAX_ANGLE);
-  value[FINGER] = AngletoValue_(finger, FACT_FINGER_MIN_ANGLE, FACT_FINGER_MAX_ANGLE);
+  value[BASE]   = angleToValue_(base,   FACT_BASE_MIN_ANGLE,   FACT_BASE_MAX_ANGLE);
+  value[RIGHT]  = angleToValue_(right,  FACT_RIGHT_MIN_ANGLE,  FACT_RIGHT_MAX_ANGLE);
+  value[LEFT]   = angleToValue_(left,   FACT_LEFT_MIN_ANGLE,   FACT_LEFT_MAX_ANGLE);
+  value[TWIST]  = angleToValue_(twist,  FACT_TWIST_MIN_ANGLE,  FACT_TWIST_MAX_ANGLE);
+  value[WRIST]  = angleToValue_(wrist,  FACT_WRIST_MIN_ANGLE,  FACT_WRIST_MAX_ANGLE);
+  value[FINGER] = angleToValue_(finger, FACT_FINGER_MIN_ANGLE, FACT_FINGER_MAX_ANGLE);
 
-  QueueEndQueue_(Queue, value);
+  enqueue_(Queue, value);
 }
 
-void ArmControl::ReadManualCalib_(UI_16* value)
+void ArmControl::readManualCalib_(UI_16* value)
 {
   for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++) {
     UI_8 low  = Serial.read();
     UI_8 high = Serial.read();
     value[count] = (high << SHIFT_BYTE) | low;
   }
-  WriteDataToEEPROM_(value, MAGIC_MODF_VAL);
-  ReadJointDataFromEEPROM_(CurrentEEPROMValue_);
+  writeDataToEEPROM_(value, MAGIC_MODF_VAL);
+  readJointDataFromEEPROM_(CurrentEEPROMValue_);
 }
 
-void ArmControl::AutoCalibration_()
+void ArmControl::autoCalibration_()
 {
   UI_16 ServoAngleBuffer[MAX_JOINT][MAX_ANGLE] = {{EMPTY_VALUE}};
 
   for (UI_8 joint = FIRST_JOINT; joint < MAX_JOINT; joint++) {
     for (UI_8 index = FIRST_ANGLE; index < MAX_ANGLE; index++) {
-      ServoAngleBuffer[joint][index] = GetTravelPoint_(joint, index);
+      ServoAngleBuffer[joint][index] = getTravelPoint_(joint, index);
     }
   }
 }
@@ -303,7 +305,7 @@ void ArmControl::AutoCalibration_()
 /* ===              EEPROM Utilities                              === */
 /* ================================================================= */
 
-void ArmControl::WriteDataToEEPROM_(const UI_16* value, UI_8 magic_val)
+void ArmControl::writeDataToEEPROM_(const UI_16* value, UI_8 magic_val)
 {
   for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++) {
     EEPROM.write(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + MSB_OFFSET,
@@ -315,7 +317,7 @@ void ArmControl::WriteDataToEEPROM_(const UI_16* value, UI_8 magic_val)
   EEPROM.commit();
 }
 
-void ArmControl::ReadJointDataFromEEPROM_(UI_16* value)
+void ArmControl::readJointDataFromEEPROM_(UI_16* value)
 {
   for (UI_8 count = FIRST_JOINT; count < MAX_JOINT; count++) {
     UI_8 msb = EEPROM.read(START_JOINT_ADDR + count * JOINT_BYTE_SIZE + MSB_OFFSET);
@@ -332,9 +334,9 @@ void ArmControl::initializeEEPROM_()
 
   UI_8 eepVal = EEPROM.read(MAGIC_ADDR);
   if ((eepVal != MAGIC_INIT_VAL) && (eepVal != MAGIC_MODF_VAL)) {
-    WriteDataToEEPROM_(FactoryInit_, MAGIC_INIT_VAL);
+    writeDataToEEPROM_(FactoryInit_, MAGIC_INIT_VAL);
   }
-  ReadJointDataFromEEPROM_(CurrentEEPROMValue_);
+  readJointDataFromEEPROM_(CurrentEEPROMValue_);
 }
 
 /* ================================================================= */
@@ -350,15 +352,15 @@ void ArmControl::initializeTriggerPin_()
   }
 }
 
-UI_8 ArmControl::GetTriggerData_(UI_8 joint, UI_8 index)
+UI_8 ArmControl::getTriggerData_(UI_8 joint, UI_8 index)
 {
   return digitalRead(PinTable_[joint][index]);
 }
 
-UI_16 ArmControl::GetTravelPoint_(UI_8 joint, UI_8 pin)
+UI_16 ArmControl::getTravelPoint_(UI_8 joint, UI_8 pin)
 {
-  UI_8 triggerData = GetTriggerData_(joint, pin);
-  UI_16 start = (SERVO_MIN_TARGET + SERVO_MAX_TARGET) / MED_DEVIDE;
+  UI_8 triggerData = getTriggerData_(joint, pin);
+  UI_16 start = (SERVO_MIN_TARGET + SERVO_MAX_TARGET) / MIDPOINT_DIV;
   UI_16 angle = start;
   UI_16 end;
   UI_8  step;
@@ -402,10 +404,10 @@ const ArmControl::CommandEntry ArmControl::commands_[] = {
 const UI_8 ArmControl::commandCount_ =
   (UI_8)(sizeof(ArmControl::commands_) / sizeof(ArmControl::commands_[0]));
 
-void ArmControl::cmdInit_()        { UpdateJointState_(); }
+void ArmControl::cmdInit_()        { updateJointState_(); }
 void ArmControl::cmdReport_()      { reportCurrentJointPositions_(); }
-void ArmControl::cmdManualCalib_() { ReadManualCalib_(UserInputJointData_); }
-void ArmControl::cmdAutoCalib_()   { AutoCalibration_(); }
+void ArmControl::cmdManualCalib_() { readManualCalib_(UserInputJointData_); }
+void ArmControl::cmdAutoCalib_()   { autoCalibration_(); }
 void ArmControl::cmdTest_()        { testAllServos_(); }
 
 /* ================================================================= */
@@ -424,16 +426,16 @@ void ArmControl::initialize()
   // initializeEEPROM_();   // enable when you want EEPROM calibration active
   initializeTriggerPin_();
 
-  UpdateJointState_();
+  updateJointState_();
 }
 
 void ArmControl::handleSerialCommands()
 {
-  if (Serial.available() > UNAVAIL_SER) {
+  if (Serial.available() > SERIAL_AVAIL_MIN) {
     String rawInput = Serial.readStringUntil('\n');
 
     if (rawInput.startsWith("b")) {
-      HandleDataInput_(incomingJointPulse_, &TrajectoryQueue_, rawInput);
+      handleDataInput_(incomingJointPulse_, &TrajectoryQueue_, rawInput);
     } else {
       for (UI_8 i = INIT_COMMAND; i < commandCount_; ++i) {
         if (rawInput == commands_[i].name) {

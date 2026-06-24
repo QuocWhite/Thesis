@@ -12,7 +12,7 @@ typedef uint16_t  UI_16;
 typedef int8_t    SI_8;
 typedef int16_t   SI_16;
 typedef int32_t   SI_32;
-typedef void (*CommandFunc)();
+
 
 /* === Common Defines === */
 #define D_FALSE     0
@@ -20,27 +20,27 @@ typedef void (*CommandFunc)();
 #define OCLFRQ      27000000
 #define SERCHNL     115200
 #define WAITINIT    10
-#define FX_SCALE    1000
+
 
 /* === Servo Parameters === */
 #define SERVO_MIN_TARGET        320
 #define SERVO_MAX_TARGET        2570
 #define SERVO_FREQUENCY         50
 #define MOTION_DURATION         150
-#define MED_DEVIDE              2
+#define MIDPOINT_DIV            2
 #define DELAY_TIME              500
-#define MARK_UP_TIME            2000
+
 #define SERVO_MIN_SOURCE        0
 #define SERVO_MAX_SOURCE        180
 #define EMPTY_VALUE             0
 
 /* === Queue Parameters === */
 #define TRAJECTORY_QUEUE_SIZE   16
-#define QUEUE_ERROR             -1
-#define INCREASE                1
-#define FIRST_INPUT             1
+#define QUEUE_NULL_IDX          -1
+#define INCREMENT               1
+
 #define QUEUE_EMPTY             0
-#define UNAVAIL_SER             0
+#define SERIAL_AVAIL_MIN        0
 
 /* === Matrix/Array Dimensions === */
 #define MAX_ANGLE       2
@@ -66,7 +66,7 @@ typedef void (*CommandFunc)();
 #define DELAY_SET                   10
 #define D_OFF                       0
 #define D_ON                        1
-#define D_NG                        -1
+
 
 #define BASE_MAX_ANGLE_PIN          5
 #define BASE_MIN_ANGLE_PIN          12
@@ -129,7 +129,7 @@ typedef void (*CommandFunc)();
 #define CUBIC_COEFF_A2      3
 #define CUBIC_COEFF_A3     -2
 #define CUBIC_ZERO          0
-#define ELAPSE_INIT         0
+
 
 #define INIT_COMMAND     0
 
@@ -206,15 +206,15 @@ private:
   static const UI_8 commandCount_;
 
   /* === Helpers (pure conversions) === */
-  UI_16 AngletoValue_(UI_16 angle, UI_16 minTarget, UI_16 maxTarget);
-  UI_16 ConsTrain_(UI_16 value);
-  UI_16 ValuetoAngle_(UI_16 value, UI_16 minTarget, UI_16 maxTarget);
+  UI_16 angleToValue_(UI_16 angle, UI_16 minTarget, UI_16 maxTarget);
+  UI_16 constrain_(UI_16 value);
+  UI_16 valueToAngle_(UI_16 value, UI_16 minTarget, UI_16 maxTarget);
 
   /* === Queue helpers === */
-  UI_8 QueueIsFull_(Trajectory* queue);
-  UI_8 QueueIsEmpty_(Trajectory* queue);
-  void QueueEndQueue_(Trajectory* queue, UI_16* data);
-  void QueueDequeue_(Trajectory* queue, UI_16* dataOut);
+  UI_8 queueIsFull_(Trajectory* queue);
+  UI_8 queueIsEmpty_(Trajectory* queue);
+  void enqueue_(Trajectory* queue, UI_16* data);
+  void dequeue_(Trajectory* queue, UI_16* dataOut);
 
   /* === Motion helpers === */
   void testAllServos_();
@@ -222,23 +222,23 @@ private:
   void prepareNextMotionStep_();
   void updateServoPositions_();
   UI_16 computeCubicTrajectory_(UI_16 startPos, UI_16 endPos, UI_8 jointIdx);
-  void UpdateJointState_();
+  void updateJointState_();
   void reportCurrentJointPositions_();
 
   /* === Input handling === */
-  void HandleDataInput_(UI_16* value, Trajectory* Queue, String rawInput);
-  void ReadManualCalib_(UI_16* value);
-  void AutoCalibration_();
-  UI_16 GetTravelPoint_(UI_8 joint, UI_8 pin);
+  void handleDataInput_(UI_16* value, Trajectory* Queue, String rawInput);
+  void readManualCalib_(UI_16* value);
+  void autoCalibration_();
+  UI_16 getTravelPoint_(UI_8 joint, UI_8 pin);
 
   /* === EEPROM utilities === */
-  void WriteDataToEEPROM_(const UI_16* value, UI_8 magic_val);
-  void ReadJointDataFromEEPROM_(UI_16* value);
+  void writeDataToEEPROM_(const UI_16* value, UI_8 magic_val);
+  void readJointDataFromEEPROM_(UI_16* value);
   void initializeEEPROM_();
 
   /* === Trigger input === */
   void initializeTriggerPin_();
-  UI_8 GetTriggerData_(UI_8 joint, UI_8 index);
+  UI_8 getTriggerData_(UI_8 joint, UI_8 index);
 
   /* === Command wrappers (so command table stays simple) === */
   void cmdInit_();
