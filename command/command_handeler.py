@@ -6,6 +6,9 @@ import serial
 
 SERIAL_PORT = "/dev/ttyUSB0"
 BAUD_RATE = 115200
+SERIAL_TIMEOUT = 1
+SERIAL_INIT_DELAY = 2
+RESPONSE_DELAY = 0.1
 
 _ser = None
 
@@ -15,8 +18,9 @@ def _get_serial():
     global _ser
     if _ser is None:
         try:
-            _ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
-            time.sleep(2)
+            _ser = serial.Serial(SERIAL_PORT, BAUD_RATE,
+                                 timeout=SERIAL_TIMEOUT)
+            time.sleep(SERIAL_INIT_DELAY)
         except serial.SerialException as e:
             print(f"Error opening serial port: {e}")
             _ser = None
@@ -49,7 +53,7 @@ def read_response():
     ser = _get_serial()
     if ser is None:
         return
-    time.sleep(0.1)
+    time.sleep(RESPONSE_DELAY)
     while ser.in_waiting:
         response = ser.readline().decode("utf-8", errors="ignore").strip()
         if response:

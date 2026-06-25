@@ -31,7 +31,8 @@ def test_angle_to_value_all_ranges():
     assert angle_to_value(0, COMMON_MIN_ANGLE, COMMON_MAX_ANGLE) == COMMON_MIN_ANGLE
     assert angle_to_value(180, COMMON_MIN_ANGLE, COMMON_MAX_ANGLE) == COMMON_MAX_ANGLE
     assert angle_to_value(0, FACT_FINGER_MIN_ANGLE, FACT_FINGER_MAX_ANGLE) == FACT_FINGER_MIN_ANGLE
-    assert angle_to_value(180, FACT_FINGER_MIN_ANGLE, FACT_FINGER_MAX_ANGLE) == FACT_FINGER_MAX_ANGLE
+    assert angle_to_value(180, FACT_FINGER_MIN_ANGLE,
+                          FACT_FINGER_MAX_ANGLE) == FACT_FINGER_MAX_ANGLE
     assert angle_to_value(-10, COMMON_MIN_ANGLE, COMMON_MAX_ANGLE) == COMMON_MIN_ANGLE
     assert angle_to_value(200, COMMON_MIN_ANGLE, COMMON_MAX_ANGLE) == COMMON_MAX_ANGLE
 

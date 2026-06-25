@@ -1,0 +1,113 @@
+===============================================================================
+                    CODING CONVENTION — Robotic Arm Control System
+===============================================================================
+
+Applies to C++ firmware (actuator/ArmControl/) and Python modules (kinematics/,
+command/, voice/, vision/, Test/).
+
+
+1. NAMING CONVENTIONS
+--------------------------------------------------------------------------------
+  Language   | Category             | Convention       | Example
+  -----------|----------------------|------------------|---------------------------
+  C++        | Classes / Structs   | PascalCase       | ArmControl, Trajectory
+  C++        | Functions / Methods | camelCase + verb | calculateSum()
+  C++        | Variables           | snake_case       | total_amount
+  C++        | Constants / Macros  | UPPER_CASE       | MAX_BUFFER_SIZE
+  C++        | Private members     | m_ prefix        | m_age, m_name
+  C++        | Enums               | PascalCase name  | enum class BookGenre
+  C++        | Enum values         | UPPER_CASE       | FICTION, NON_FICTION
+  C++        | Namespaces          | lowercase        | arm::control
+  C++        | File names          | PascalCase       | ArmControl.h
+  -----------|----------------------|------------------|---------------------------
+  Python     | Classes             | PascalCase       | TrajectoryQueue, MockVoice
+  Python     | Functions / Methods | snake_case       | compute_forward_kinematics
+  Python     | Variables           | snake_case       | joint_angles
+  Python     | Constants           | UPPER_CASE       | MAX_JOINT, JACOBIAN_DELTA
+  Python     | Private convention  | leading _       | _get_serial(), _ser
+  Python     | Module names        | snake_case       | kinematics.py
+  Python     | Test functions      | test_ prefix     | test_kin_fk_zero_position
+  Python     | Test file names     | test_ prefix     | test_system.py
+
+
+2. FORMATTING & LAYOUT
+--------------------------------------------------------------------------------
+  + Indentation           : 4 spaces (no tabs) — BOTH languages
+  + Line Length           : max 100 characters  — BOTH languages
+  + Brace Placement (C++) : same line for functions/if/for/while
+                              if (condition) {
+                                  doSomething();
+                              }
+  + Blank lines (Python)  : two blank lines before top-level functions/classes
+                            one blank line before method definitions
+  + Trailing whitespace   : none — strip all lines
+
+
+3. FILE & INCLUDE STRUCTURE
+--------------------------------------------------------------------------------
+  === C++ ===
+  + Extensions            : .h / .cpp (Arduino compatible; .hpp also OK)
+  + Header Guards         : #ifndef / #define / #endif (Arduino ecosystem norm)
+  + Include Order         : 1) C/C++ standard libraries
+                            2) Third-party libraries (Adafruit, Wire, etc.)
+                            3) Project headers (relative path)
+
+  === Python ===
+  + Imports order         : 1) stdlib (os, sys, io, math, etc.)
+                            2) third-party (numpy, cv2, tensorflow, etc.)
+                            3) local project modules (kinematics, command, etc.)
+  + One import per line   : YES — avoid `import os, sys` form
+  + __init__.py           : re-export public API only
+
+
+4. COMMENTS
+--------------------------------------------------------------------------------
+  + Docstrings (Python)   : triple double-quotes """...""" on modules, functions,
+                            and classes — first line is a brief description
+  + Function headers(C++) : optional; use descriptive names instead
+  + Inline comments       : only for non-obvious logic (explain "why", not "what")
+  + Avoid                 : commented-out code — delete it
+
+
+5. NO MAGIC NUMBERS
+--------------------------------------------------------------------------------
+  + No bare literals      : every non-obvious value must be a named constant
+  + Exceptions            : 0, 1, True, False, empty string, loop counters
+  + Physical constants    : DH parameters, pin numbers, baud rates are named
+  + Tolerances/thresholds : always named (e.g., JACOBIAN_DELTA, TOLERANCE)
+
+
+6. PYTHON-SPECIFIC BEST PRACTICES
+--------------------------------------------------------------------------------
+  + Type hints            : optional but encouraged for public APIs
+  + List/dict literals    : prefer [] / {} over list() / dict()
+  + f-strings             : prefer over % or .format()
+  + Avoid                 : bare `except:` — specify exception type
+  + Return early          : return early for error cases; keep happy path flat
+
+
+7. C++-SPECIFIC BEST PRACTICES
+--------------------------------------------------------------------------------
+  + Initialize always     : int count = 0;   not   int count;
+  + nullptr over NULL     : use nullptr (C++11+) not NULL or 0
+  + const correctness     : mark member functions const when they don't mutate
+  + Pass by reference     : pass objects as const& (not by value) unless modified
+
+
+8. GIT COMMIT CONVENTION
+--------------------------------------------------------------------------------
+  Format:  type(scope): brief description
+
+  Types:   feat, fix, refactor, docs, style, test, chore
+  Example: feat(kinematics): add IK solver with Jacobian pseudoinverse
+           fix(firmware): correct integer overflow in cubic trajectory
+
+
+9. TEST CONVENTION
+--------------------------------------------------------------------------------
+  + File naming            : test_<ModuleName>.py / .cpp
+  + Test functions (Python): def test_<scenario>():
+  + Test framework (C++)   : doctest or Catch2 (header-only)
+  + Test coverage          : at least one test per public function
+  + Hardware mocking       : use monkeypatch / Mock classes for serial, camera, mic
+  + Visualization tests    : generate PNGs, skip if matplotlib absent

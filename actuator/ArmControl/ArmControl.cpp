@@ -93,13 +93,16 @@ UI_16 ArmControl::constrain_(UI_16 value)
 UI_16 ArmControl::angleToValue_(UI_16 angle, UI_16 minTarget, UI_16 maxTarget)
 {
   UI_16 convertedAngle = constrain_(angle);
-  UI_16 value = (convertedAngle - SERVO_MIN_SOURCE) * (maxTarget - minTarget) / (SERVO_MAX_SOURCE - SERVO_MIN_SOURCE) + minTarget;
+  UI_16 value = (convertedAngle - SERVO_MIN_SOURCE)
+              * (maxTarget - minTarget)
+              / (SERVO_MAX_SOURCE - SERVO_MIN_SOURCE) + minTarget;
   return value;
 }
 
 UI_16 ArmControl::valueToAngle_(UI_16 value, UI_16 minTarget, UI_16 maxTarget)
 {
-  UI_16 angle = ((value - minTarget) * (SERVO_MAX_SOURCE - SERVO_MIN_SOURCE)) / (maxTarget - minTarget) + SERVO_MIN_SOURCE;
+  UI_16 angle = ((value - minTarget) * (SERVO_MAX_SOURCE - SERVO_MIN_SOURCE))
+              / (maxTarget - minTarget) + SERVO_MIN_SOURCE;
   return angle;
 }
 
