@@ -1,4 +1,4 @@
-"""Comprehensive + stress tests for ported arm control logic (no Arduino hardware)."""
+"""Comprehensive + stress tests for ported arm control logic (no physical hardware)."""
 
 import random
 from armcontrol import (

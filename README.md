@@ -1,6 +1,6 @@
 # Quoc — Voice-Guided 6-DOF Robotic Arm Control System
 
-Python-based control system for a **6-DOF pick-and-place robot arm** with voice commands, computer vision (YOLOv3), inverse kinematics, and Arduino Mega firmware.
+Python-based control system for a **6-DOF pick-and-place robot arm** with voice commands, computer vision (YOLOv3), inverse kinematics, and ESP32 firmware (Arduino framework).
 
 ## System Overview
 
@@ -9,7 +9,7 @@ User Voice → Speech Recognition → Command Parsing → Object Detection (YOLO
                                                        ↓
                                               Inverse Kinematics
                                                        ↓
-                                           Serial → Arduino Mega
+                                            Serial → ESP32
                                                        ↓
                                            PCA9685 → 6 Servo Motors
 ```
@@ -36,14 +36,14 @@ Quoc/
 │   └── yolo3/                  YOLOv3 model architecture
 ├── kinematics/                 Forward & inverse kinematics
 │   └── kinematics.py           DH parameters, Jacobian-based IK solver
-├── actuator/                   Arduino Mega firmware & 3D print files
+├── actuator/                   ESP32 firmware (Arduino framework) & 3D print files
 │   ├── ArmControl/             Firmware source (C++)
 │   │   ├── ArmControl.ino      Entry point
 │   │   ├── ArmControl.h        Configuration, pin assignments, class API
 │   │   └── ArmControl.cpp      6-axis motion control, cubic trajectory, serial parser
 │   └── Finger/                 3D-printable gripper STL files
 ├── command/                    Serial communication bridge
-│   └── command_handeler.py     Sends joint data & commands to Arduino
+│   └── command_handeler.py     Sends joint data & commands to ESP32
 ├── Test/                       Host-side integration & unit tests
 │   ├── test_system.py          Kinematics, serial bridge, voice parsing, pipeline, 3D viz
 │   ├── test_armcontrol.py      Python port of firmware logic (18 unit/stress tests)
@@ -57,7 +57,7 @@ Quoc/
 └── requirements.txt
 ```
 
-## Firmware (Arduino Mega)
+## Firmware (ESP32)
 
 ### Communication Protocol
 
@@ -138,7 +138,7 @@ Each joint has dedicated trigger pins for limit/calibration:
 - **`Arm_IT_test.cpp`** — C++ host endurance test (10k iterations, all 7 tests passing)
 
 ### Command Bridge (`command/command_handeler.py`)
-- Serial communication with Arduino Mega
+- Serial communication with ESP32
 - `send_joint_data(t1..t6)` — sends formatted joint angles
 - `send_command(cmd)` — sends text commands
 - Response reading and logging
@@ -150,14 +150,14 @@ pip install -r requirements.txt
 ./run_sys.sh
 ```
 
-Requires **Python 3.10+** and an **Arduino Mega** running the firmware at `/dev/ttyUSB0` (configurable in `command/command_handeler.py`).
+Requires **Python 3.10+** and an **ESP32** running the firmware at `/dev/ttyUSB0` (configurable in `command/command_handeler.py`).
 
-### Arduino Firmware Upload
+### Firmware Upload
 
 1. Open `actuator/ArmControl/ArmControl.ino` in Arduino IDE
 2. Install dependencies: `Adafruit PWMServoDriver` library
-3. Select **Arduino Mega** board
-4. Upload to `/dev/ttyUSB0`
+3. Select **ESP32 Dev Module** board (install ESP32 board support if needed)
+4. Upload to the appropriate serial port (e.g. `/dev/ttyUSB0`)
 
 ## 3D-Printable Parts
 
@@ -170,9 +170,8 @@ Gripper STL files in `actuator/Finger/`:
 ## Requirements
 
 - Python 3.10+
-- Arduino Mega
+- ESP32 (Arduino framework)
 - PCA9685 servo driver
 - 6× servo motors (with limit switches)
 - USB webcam
 - Microphone
-- TB6600 stepper drivers (optional)

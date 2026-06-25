@@ -1,4 +1,4 @@
-"""Ported arm control logic for host-side testing (no Arduino hardware)."""
+"""Ported arm control logic for host-side testing (no physical hardware)."""
 
 SERVO_MIN_SOURCE = 0
 SERVO_MAX_SOURCE = 180

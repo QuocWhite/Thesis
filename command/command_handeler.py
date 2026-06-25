@@ -1,4 +1,4 @@
-"""Serial communication bridge between Python and Arduino arm firmware."""
+"""Serial communication bridge between Python and ESP32 arm firmware."""
 
 import time
 import serial
@@ -28,7 +28,7 @@ def _get_serial():
 
 
 def send_joint_data(t1, t2, t3, t4, t5, t6):
-    """Send formatted joint angles to Arduino."""
+    """Send formatted joint angles to ESP32."""
     ser = _get_serial()
     if ser is None:
         return
@@ -39,7 +39,7 @@ def send_joint_data(t1, t2, t3, t4, t5, t6):
 
 
 def send_command(cmd):
-    """Send a text command string to the Arduino."""
+    """Send a text command string to the ESP32."""
     ser = _get_serial()
     if ser is None:
         return
@@ -49,7 +49,7 @@ def send_command(cmd):
 
 
 def read_response():
-    """Read and print all pending Arduino response lines."""
+    """Read and print all pending ESP32 response lines."""
     ser = _get_serial()
     if ser is None:
         return
