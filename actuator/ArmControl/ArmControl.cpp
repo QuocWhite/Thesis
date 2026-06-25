@@ -215,13 +215,13 @@ UI_16 ArmControl::computeCubicTrajectory_(UI_16 startPos, UI_16 endPos, UI_8 joi
 
   SI_32 a0 = (SI_32)startPos * CUBIC_SCALE_POS;
   SI_32 a1 = CUBIC_ZERO;
-  SI_32 a2 = (SI_32)((int64_t)CUBIC_COEFF_A2 * delta * CUBIC_SCALE_A2 / (T * T));
-  SI_32 a3 = (SI_32)((int64_t)CUBIC_COEFF_A3 * delta * CUBIC_SCALE_A3 / (T * T * T));
+  SI_32 a2 = (SI_32)((SI_64)CUBIC_COEFF_A2 * delta * CUBIC_SCALE_A2 / (T * T));
+  SI_32 a3 = (SI_32)((SI_64)CUBIC_COEFF_A3 * delta * CUBIC_SCALE_A3 / (T * T * T));
 
   if (t <= T) {
     SI_32 pos = a0 / CUBIC_SCALE_POS
-              + (SI_32)((int64_t)a2 * t * t / CUBIC_SCALE_A2)
-              + (SI_32)((int64_t)a3 * t * t * t / CUBIC_SCALE_A3);
+              + (SI_32)((SI_64)a2 * t * t / CUBIC_SCALE_A2)
+              + (SI_32)((SI_64)a3 * t * t * t / CUBIC_SCALE_A3);
     if (pos < (SI_32)COMMON_MIN_ANGLE) pos = COMMON_MIN_ANGLE;
     if (pos > (SI_32)COMMON_MAX_ANGLE) pos = COMMON_MAX_ANGLE;
     currentOutput_[jointIdx] = (UI_16)pos;

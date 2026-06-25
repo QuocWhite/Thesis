@@ -12,6 +12,7 @@ typedef uint16_t  UI_16;
 typedef int8_t    SI_8;
 typedef int16_t   SI_16;
 typedef int32_t   SI_32;
+typedef int64_t   SI_64;
 
 
 /* === Common Defines === */
